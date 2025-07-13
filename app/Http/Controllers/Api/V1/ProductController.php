@@ -9,7 +9,6 @@ use App\Http\Requests\Api\V1\ClassifyProductsRequest;
 use App\Models\Product;
 use App\Services\FodmapClassifierService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
@@ -17,27 +16,34 @@ class ProductController extends Controller
         ClassifyProductsRequest $request,
         FodmapClassifierService $classifier
     ): JsonResponse {
-        $incomingProducts = $request->validated()['products'];
-        $externalIds      = array_unique(array_column($incomingProducts, 'externalId'));
+        $incomingProducts = collect($request->validated()['products']);
+        $externalIds      = $incomingProducts->pluck('externalId')->unique();
 
-        $productsToUpsert = array_map(
-            fn ($data): array => [
-                'external_id' => $data['externalId'],
-                'name'        => $data['name'],
-                'category'    => $data['category'] ?? 'Uncategorized',
-                'status'      => $classifier->classify(new Product([
+        $existingProducts    = Product::whereIn('external_id', $externalIds)->get();
+        $existingExternalIds = $existingProducts->pluck('external_id');
+
+        $newProductsData = $incomingProducts->whereNotIn('externalId', $existingExternalIds);
+
+        $productsToInsert = [];
+        if ($newProductsData->isNotEmpty()) {
+            foreach ($newProductsData as $data) {
+                $productForClassification = new Product([
                     'name'     => $data['name'],
                     'category' => $data['category'] ?? 'Uncategorized',
-                ])),
-            ],
-            $incomingProducts
-        );
+                ]);
 
-        Product::upsert(
-            $productsToUpsert,
-            ['external_id'],
-            ['name', 'category', 'status']
-        );
+                $productsToInsert[] = [
+                    'external_id' => $data['externalId'],
+                    'name'        => $data['name'],
+                    'category'    => $productForClassification->category,
+                    'status'      => $classifier->classify($productForClassification),
+                    'created_at'  => now(),
+                    'updated_at'  => now(),
+                ];
+            }
+
+            Product::insert($productsToInsert);
+        }
 
         $finalResults = Product::whereIn('external_id', $externalIds)->get();
 
@@ -45,29 +51,4 @@ class ProductController extends Controller
             'results' => $finalResults,
         ]);
     }
-
-    /**
-     * Display a listing of the resource.
-     */
-    public function index() {}
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request): void {}
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id): void {}
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id): void {}
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id): void {}
 }
