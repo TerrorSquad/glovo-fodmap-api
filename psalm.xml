@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<psalm
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://getpsalm.org/schema/config"
+    xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+    findUnusedCode="true"
+    findUnusedBaselineEntry="true"
+    resolveFromConfigFile="true"
+>
+    <projectFiles>
+        <directory name="app" />
+        <directory name="bootstrap" />
+        <directory name="config" />
+        <directory name="database" />
+        <directory name="documentation" />
+        <directory name="public" />
+        <directory name="resources" />
+        <directory name="routes" />
+        <directory name="storage" />
+        <directory name="tests" />
+    </projectFiles>
+</psalm>

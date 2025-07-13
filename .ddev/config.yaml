@@ -3,21 +3,26 @@ type: laravel
 docroot: public
 php_version: "8.3"
 webserver_type: nginx-fpm
-xdebug_enabled: false
+xdebug_enabled: true
 additional_hostnames: []
 additional_fqdns: []
 database:
-    type: mariadb
-    version: "10.11"
+  type: mariadb
+  version: "10.11"
 omit_containers: [db]
 use_dns_when_possible: true
 composer_version: "2"
 disable_settings_management: true
 web_environment: []
 corepack_enable: false
-
+hooks:
+  pre-start:
+    - exec-host: python3 .ddev/php/pre-start.py
+  post-start:
+    - exec: bash ./tools/git-hooks/setup.sh
+    - exec: composer install --prefer-dist --no-progress --no-interaction
+    - exec: python3 .phpstorm/update_xdebug_config.py
 # Key features of DDEV's config.yaml:
-
 # name: <projectname> # Name of the project, automatically provides
 #   http://projectname.ddev.site and https://projectname.ddev.site
 # If the name is omitted, the project will take the name of the enclosing directory,
