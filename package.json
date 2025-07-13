@@ -8,7 +8,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "prepare": "husky",
     "commit": "commit",
-    "generate:api-doc:html": "redocly build-docs documentation/openapi.yml --output=documentation/openapi.html"
+    "generate:api-doc:html": "redocly build-docs documentation/openapi.yml --output=documentation/openapi.html",
+    "commitlint": "commitlint"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",
