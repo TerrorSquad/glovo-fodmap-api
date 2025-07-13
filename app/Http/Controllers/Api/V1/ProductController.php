@@ -7,31 +7,42 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\ClassifyProductsRequest;
 use App\Models\Product;
+use App\Services\FodmapClassifierService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
-    public function classify(ClassifyProductsRequest $request): JsonResponse
-    {
+    public function classify(
+        ClassifyProductsRequest $request,
+        FodmapClassifierService $classifier
+    ): JsonResponse {
         $incomingProducts = $request->validated()['products'];
         $externalIds      = array_unique(array_column($incomingProducts, 'externalId'));
 
-        $productsToUpsert = array_map(fn ($productData): array => [
-            'external_id' => $productData['externalId'],
-            'name'        => $productData['name'],
-            'category'    => $productData['category'] ?? 'Uncategorized',
-            'status'      => 'PENDING',
-        ], $incomingProducts);
+        $productsToUpsert = array_map(
+            fn ($data): array => [
+                'external_id' => $data['externalId'],
+                'name'        => $data['name'],
+                'category'    => $data['category'] ?? 'Uncategorized',
+                'status'      => $classifier->classify(new Product([
+                    'name'     => $data['name'],
+                    'category' => $data['category'] ?? 'Uncategorized',
+                ])),
+            ],
+            $incomingProducts
+        );
 
-        Product::upsert($productsToUpsert, ['external_id'], ['name', 'category']);
+        Product::upsert(
+            $productsToUpsert,
+            ['external_id'],
+            ['name', 'category', 'status']
+        );
 
-        // TODO: Implement logic to classify PENDING products
-
-        $allProducts = Product::whereIn('external_id', $externalIds)->get();
+        $finalResults = Product::whereIn('external_id', $externalIds)->get();
 
         return response()->json([
-            'results' => $allProducts,
+            'results' => $finalResults,
         ]);
     }
 
