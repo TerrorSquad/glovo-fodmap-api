@@ -3,6 +3,37 @@
 declare(strict_types=1);
 
 return [
+    'ignore' => [
+        'maxi',
+        'premia',
+        'delhaize',
+        'frikom',
+        'imlek',
+        'zlatiborac',
+        'carnex',
+        'neoplanta',
+        'sveže',
+        'domaća',
+        'bio',
+        'organski',
+        'organic',
+        'slajs',
+        'sečeni',
+        'komad',
+        'kg',
+        'g',
+        'gr',
+        'ml',
+        'l',
+        'kom',
+        'pak',
+        'map',
+        'vp',
+        'np',
+        'gf',
+        'bez glutena',
+    ],
+
     'low' => [
         'keywords' => [
             'piletina',
