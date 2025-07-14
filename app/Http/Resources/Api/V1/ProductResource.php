@@ -6,7 +6,17 @@ namespace App\Http\Resources\Api\V1;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property int    $id
+ * @property string $external_id
+ * @property string $name
+ * @property string $category
+ * @property string $status
+ * @property Carbon $created_at
+ * @property Carbon $updated_at
+ */
 class ProductResource extends JsonResource
 {
     /**
