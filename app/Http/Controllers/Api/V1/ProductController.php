@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\ClassifyProductsRequest;
+use App\Http\Resources\Api\V1\ProductResource;
 use App\Models\Product;
 use App\Services\FodmapClassifierService;
 use Illuminate\Http\JsonResponse;
@@ -48,7 +49,7 @@ class ProductController extends Controller
         $finalResults = Product::whereIn('external_id', $externalIds)->get();
 
         return response()->json([
-            'results' => $finalResults,
+            'results' => ProductResource::collection($finalResults),
         ]);
     }
 }
