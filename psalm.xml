@@ -7,16 +7,23 @@
     findUnusedBaselineEntry="true"
     resolveFromConfigFile="true"
 >
+
     <projectFiles>
+        <ignoreFiles>
+            <directory name="vendor" />
+            <directory name="storage" />
+        </ignoreFiles>
         <directory name="app" />
-        <directory name="bootstrap" />
+        <!-- <directory name="bootstrap" />
         <directory name="config" />
         <directory name="database" />
         <directory name="documentation" />
         <directory name="public" />
         <directory name="resources" />
         <directory name="routes" />
-        <directory name="storage" />
-        <directory name="tests" />
+        <directory name="tests" /> -->
     </projectFiles>
+    <plugins>
+        <pluginClass class="Psalm\LaravelPlugin\Plugin" />
+    </plugins>
 </psalm>

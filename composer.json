@@ -25,9 +25,10 @@
     "nunomaduro/collision": "^8.6",
     "phpstan/phpstan": "^2.1",
     "phpunit/phpunit": "^11.5.3",
-    "psalm/phar": "^6.12",
+    "psalm/plugin-laravel": "^3.0",
     "rector/rector": "^2.1",
     "symplify/easy-coding-standard": "^12.5",
+    "vimeo/psalm": "^6.13",
     "zircote/swagger-php": "^5.1"
   },
   "autoload": {
