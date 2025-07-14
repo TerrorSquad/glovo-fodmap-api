@@ -11,6 +11,8 @@ function run() {
   fi
 }
 
+# Testing if the script is running inside a ddev container
+
 function run_in_ddev_container() {
   PROJECT_NAME=$(grep "name: " "$ROOT"/.ddev/config.yaml | head -1 | cut -f 2 -d ' ')
   HOSTNAME=$(hostname)
