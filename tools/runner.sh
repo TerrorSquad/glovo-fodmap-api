@@ -4,7 +4,7 @@ IS_DDEV=$(stat -c %d "$ROOT/.ddev" 2>/dev/null || echo 1)
 
 # function that runs a command in the ddev web container or outside of it depending on the hostname
 function run() {
-  if [ "$IS_DDEV" != 1 ]; then
+  if [ "$IS_DDEV" == 1 ]; then
     run_in_ddev_container "$@"
   else
     "$@"
