@@ -28,10 +28,12 @@ class ProductController extends Controller
         $productsToInsert = [];
         if ($newProductsData->isNotEmpty()) {
             foreach ($newProductsData as $data) {
-                $productForClassification = new Product([
-                    'name'     => $data['name'],
-                    'category' => $data['category'] ?? 'Uncategorized',
-                ]);
+                $productForClassification = new Product(
+                    [
+                        'name'     => $data['name'],
+                        'category' => $data['category'] ?? 'Uncategorized',
+                    ]
+                );
 
                 $productsToInsert[] = [
                     'external_id' => $data['externalId'],
