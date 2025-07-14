@@ -13,5 +13,4 @@ parameters:
     - public
     - resources
     - routes
-    - storage
     - tests
