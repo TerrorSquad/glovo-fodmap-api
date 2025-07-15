@@ -187,67 +187,47 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
         }
 
         return <<<PROMPT
-            You are a FODMAP classification expert. Classify the following products based on FODMAP content.
+            You are a FODMAP classification expert. Classify each product based on FODMAP content.
 
-            CRITICAL: Product names are in Serbian/Bosnian/Croatian/Montenegrin language. You MUST translate and understand them first.
+            CONTEXT: These are real products sold on Glovo delivery app in Serbia. Product names are in Serbian/Bosnian/Croatian/Montenegrin languages. Use the category field to help understand what type of product it is.
 
-            Translation dictionary:
-            - "kokos" = coconut (LOW FODMAP in normal portions)
-            - "komad/komadići" = piece/pieces
-            - "očišćeni" = cleaned/peeled
-            - "instant kafa" = instant coffee (LOW FODMAP)
-            - "hleb/hljeb/kruh" = bread (HIGH if wheat, LOW if gluten-free)
-            - "mlijeko/mleko" = milk (HIGH FODMAP due to lactose)
-            - "jogurt" = yogurt (HIGH FODMAP due to lactose)
-            - "jabuka" = apple (HIGH FODMAP due to fructose)
-            - "kruška" = pear (HIGH FODMAP due to fructose)
-            - "luk" = onion (HIGH FODMAP due to fructans)
-            - "beli luk" = garlic (HIGH FODMAP due to fructans)
-            - "pasulj" = beans (HIGH FODMAP due to oligosaccharides)
-            - "sočivo" = lentil (HIGH FODMAP due to oligosaccharides)
-            - "čips" = chips
-            - "pšenica/pšenična" = wheat (HIGH FODMAP due to fructans)
-            - "bezglutenski" = gluten-free (usually LOW FODMAP)
-            - "keks" = biscuit/cookie
-            - "brašno" = flour
-            - "pirinač/riža" = rice (LOW FODMAP)
-            - "krompir/krumpir" = potato (LOW FODMAP)
+            Key Serbian food terms to recognize:
+            - "čips/chips" = chips/crisps, "keks" = biscuit/cookie, "kreker" = cracker
+            - "bezglutenski/gluten free/GF" = gluten-free (usually LOW FODMAP)
+            - "pšenica/pšenična" = wheat (HIGH FODMAP), "ječam" = barley (HIGH FODMAP)
+            - "mlijeko/mleko" = milk (HIGH FODMAP), "jogurt" = yogurt (HIGH FODMAP)
+            - "luk" = onion (HIGH FODMAP), "beli luk/češnjak" = garlic (HIGH FODMAP)
+            - "pasulj" = beans (HIGH FODMAP), "sočivo" = lentils (HIGH FODMAP)
+            - "pirinač/riža" = rice (LOW FODMAP), "krompir" = potato (LOW FODMAP)
+            - "meso/mesa" = meat (LOW FODMAP), "riba" = fish (LOW FODMAP)
+            - "alkohol/rakija/vino/pivo" = alcoholic beverages
 
             Products to classify:
             {$productList}
 
-            For each product:
-            STEP 1: Translate the product name to English first
-            STEP 2: Determine if it's food or non-food
-            STEP 3: If food, classify FODMAP level
+            Classification approach:
+            1. Use the CATEGORY to understand the product type (e.g., "Gluten free" category = likely LOW FODMAP)
+            2. Identify main ingredients from the Serbian product name
+            3. Apply FODMAP knowledge to classify
 
-            Classification Rules:
-            - LOW: Food products that are generally safe for people with IBS (less than threshold amounts of FODMAPs)
-            - HIGH: Food products that contain significant amounts of FODMAPs (fructans, lactose, fructose, polyols, etc.)
-            - NA: Non-food products (cosmetics, cleaning products, toiletries, household items, personal care, etc.)
-            - UNKNOWN: Food products where you cannot determine the FODMAP level with confidence
+            Classification rules:
+            - LOW: Safe for IBS (rice, potatoes, meat, fish, eggs, most vegetables, gluten-free products, plain alcohol)
+            - HIGH: Contains significant FODMAPs (wheat/grain products, milk/dairy, onion, garlic, beans/legumes, apples, pears)
+            - NA: Non-food items (cosmetics, cleaning products, toiletries, household items)
+            - UNKNOWN: Food but ingredients unclear or complex formulations
 
-            Common HIGH FODMAP foods: wheat products, onions, garlic, beans, milk products, apples, pears, stone fruits, etc.
-            Common LOW FODMAP foods: rice, potatoes, carrots, spinach, chicken, fish, lactose-free dairy, oranges, strawberries, COCONUT, etc.
+            IMPORTANT: 
+            - Products in "Gluten free" category are usually LOW FODMAP
+            - Simple meat, fish, vegetable products are usually LOW FODMAP
+            - Plain alcoholic beverages (rakija, vodka, wine) are usually LOW FODMAP
+            - Be confident - most single-ingredient or simple products can be classified
 
-            EXAMPLE ANALYSIS:
-            "Kokos komad" = "Coconut piece" = FOOD = Coconut is LOW FODMAP = ANSWER: "low"
-            "Instant kafa" = "Instant coffee" = FOOD = Coffee is LOW FODMAP = ANSWER: "low"
-            "Pšenični hleb" = "Wheat bread" = FOOD = Wheat is HIGH FODMAP = ANSWER: "high"
-            "Čips od sočiva" = "Lentil chips" = FOOD = Lentils are HIGH FODMAP = ANSWER: "high"
-
-            Respond with classifications in the exact format:
-            1: [classification]
-            2: [classification]
-            3: [classification]
-            ...
-
-            Where [classification] is one word: "low", "high", "na", or "unknown"
-
-            Example response:
+            Respond ONLY in this exact format:
             1: low
             2: high
             3: na
+
+            Be decisive based on category context and main ingredients.
             PROMPT;
     }
 
