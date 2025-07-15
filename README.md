@@ -162,6 +162,7 @@ This project supports both rule-based and AI-powered classification using Google
 
 - **`HIGH`**: Contains high FODMAP ingredients
 - **`LOW`**: Contains only low FODMAP ingredients
+- **`NA`**: Non-food products (cosmetics, cleaning products, etc.)
 - **`UNKNOWN`**: Cannot be classified (insufficient data)
 
 ## 🏗️ Architecture

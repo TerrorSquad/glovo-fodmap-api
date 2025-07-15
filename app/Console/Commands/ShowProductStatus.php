@@ -75,6 +75,7 @@ class ShowProductStatus extends Command
                 'LOW'     => 'low',
                 'UNKNOWN' => 'unknown',
                 'PENDING' => 'pending',
+                'NA'      => 'na',
                 default   => strtolower((string) $status),
             };
 
@@ -117,6 +118,7 @@ class ShowProductStatus extends Command
                 ['High FODMAP', $statusCounts['HIGH'] ?? 0, $this->percentage($statusCounts['HIGH'] ?? 0, $total)],
                 ['Low FODMAP', $statusCounts['LOW'] ?? 0, $this->percentage($statusCounts['LOW'] ?? 0, $total)],
                 ['Unknown', ($statusCounts['UNKNOWN'] ?? 0) + ($statusCounts['unknown'] ?? 0), $this->percentage(($statusCounts['UNKNOWN'] ?? 0) + ($statusCounts['unknown'] ?? 0), $total)],
+                ['Non-Food (NA)', $statusCounts['NA'] ?? 0, $this->percentage($statusCounts['NA'] ?? 0, $total)],
                 ['Pending/Unclassified', ($statusCounts['PENDING'] ?? 0) + $unclassified, $this->percentage(($statusCounts['PENDING'] ?? 0) + $unclassified, $total)],
             ]
         );
@@ -134,6 +136,7 @@ class ShowProductStatus extends Command
             'low'     => 'green',
             'unknown' => 'yellow',
             'pending' => 'cyan',
+            'na'      => 'gray',
             default   => 'gray',
         };
     }

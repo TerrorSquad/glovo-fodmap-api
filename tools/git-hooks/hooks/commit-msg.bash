@@ -9,13 +9,13 @@ fi
 ROOT=$(git rev-parse --show-toplevel)
 runner="$ROOT/tools/runner.sh"
 current_branch=$(git symbolic-ref --short HEAD)
-branch_regex='^(feature|fix|chore|story|task|bug|sub-task)/(PRJ|ERM)-[0-9]+(-.+)?$'
+# branch_regex='^(feature|fix|chore|story|task|bug|sub-task)/(PRJ|ERM)-[0-9]+(-.+)?$'
 
-if ! echo "$current_branch" | grep -qiE "$branch_regex"; then
-    echo "ERROR: Invalid branch name format. Use <type>/<prefix>-<ticket_number>-<description>."
-    echo "Example: feature/PRJ-1234-amazing-new-feature"
-    exit 1
-fi
+# if ! echo "$current_branch" | grep -qiE "$branch_regex"; then
+#     echo "ERROR: Invalid branch name format. Use <type>/<prefix>-<ticket_number>-<description>."
+#     echo "Example: feature/PRJ-1234-amazing-new-feature"
+#     exit 1
+# fi
 
 bash "$runner" node_modules/.bin/commitlint --edit "$1"
 

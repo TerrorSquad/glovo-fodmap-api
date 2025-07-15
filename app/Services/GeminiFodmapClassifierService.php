@@ -46,20 +46,24 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
     private function buildPrompt(Product $product): string
     {
         return <<<PROMPT
-            You are a FODMAP classification expert. Classify the following food product as either "low", "high", or "unknown" based on FODMAP content.
+            You are a FODMAP classification expert. Classify the following product based on FODMAP content.
 
             Product Name: {$product->name}
             Category: {$product->category}
 
-            FODMAP Classification Rules:
-            - LOW: Foods that are generally safe for people with IBS (less than threshold amounts of FODMAPs)
-            - HIGH: Foods that contain significant amounts of FODMAPs (fructans, lactose, fructose, polyols, etc.)
-            - UNKNOWN: When you cannot determine the FODMAP level with confidence
+            Classification Rules:
+            - LOW: Food products that are generally safe for people with IBS (less than threshold amounts of FODMAPs)
+            - HIGH: Food products that contain significant amounts of FODMAPs (fructans, lactose, fructose, polyols, etc.)
+            - NA: Non-food products (cosmetics, cleaning products, toiletries, household items, etc.)
+            - UNKNOWN: Food products where you cannot determine the FODMAP level with confidence
 
-            Common HIGH FODMAP foods include: wheat products, onions, garlic, beans, milk products, apples, pears, stone fruits, etc.
-            Common LOW FODMAP foods include: rice, potatoes, carrots, spinach, chicken, fish, lactose-free dairy, oranges, strawberries, etc.
+            Common HIGH FODMAP foods: wheat products, onions, garlic, beans, milk products, apples, pears, stone fruits, etc.
+            Common LOW FODMAP foods: rice, potatoes, carrots, spinach, chicken, fish, lactose-free dairy, oranges, strawberries, etc.
+            Non-food items: shampoo, detergent, toothpaste, cosmetics, cleaning supplies, etc.
 
-            Respond with only one word: "low", "high", or "unknown"
+            Important: If this is clearly not a food product, classify it as "NA" regardless of FODMAP content.
+
+            Respond with only one word: "low", "high", "na", or "unknown"
             PROMPT;
     }
 
@@ -74,6 +78,10 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
 
         if (str_contains($normalized, 'high')) {
             return 'HIGH';
+        }
+
+        if (str_contains($normalized, 'na')) {
+            return 'NA';
         }
 
         return 'UNKNOWN';
