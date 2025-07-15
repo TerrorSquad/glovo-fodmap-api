@@ -22,7 +22,9 @@ class ClassifyProducts extends Command
                             {--all : Classify all products in the database}
                             {--force : Re-classify products even if they already have a status}
                             {--ai : Use AI classifier (overrides config setting)}
-                            {--rules : Use rule-based classifier (overrides config setting)}';
+                            {--rules : Use rule-based classifier (overrides config setting)}
+                            {--batch-size=10 : Number of products to classify in each batch (AI only)}
+                            {--no-batch : Disable batch processing and classify one by one}';
 
     /**
      * The console command description.
@@ -44,55 +46,18 @@ class ClassifyProducts extends Command
 
         $this->info(sprintf('Found %d product(s) to classify.', $products->count()));
 
-        $bar = $this->output->createProgressBar($products->count());
-        $bar->start();
+        $batchSize      = $this->getBatchSize($classifier);
+        $shouldUseBatch = $this->shouldUseBatchProcessing($classifier, $products->count());
 
-        $classified = 0;
-        $errors     = 0;
+        if ($shouldUseBatch && $batchSize > 1) {
+            $this->info(sprintf('Using batch processing with batch size: %d', $batchSize));
 
-        foreach ($products as $product) {
-            try {
-                $originalStatus = $product->status;
-                $newStatus      = $classifier->classify($product);
-
-                $product->update([
-                    'status' => $newStatus,
-                ]);
-                ++$classified;
-
-                if ($this->option('verbose')) {
-                    $this->newLine();
-                    $this->line('Product: ' . $product->name);
-                    $this->line('External ID: ' . $product->external_id);
-                    $this->line('Category: ' . $product->category);
-                    $this->line(sprintf('Status: %s → %s', $originalStatus, $newStatus));
-                    $this->line('---');
-                }
-            } catch (\Exception $e) {
-                ++$errors;
-                if ($this->option('verbose')) {
-                    $this->newLine();
-                    $this->error(sprintf('Failed to classify product %s: %s', $product->external_id, $e->getMessage()));
-                }
-            }
-
-            $bar->advance();
+            return $this->classifyInBatches($classifier, $products, $batchSize);
         }
 
-        $bar->finish();
-        $this->newLine(2);
+        $this->info('Using individual product classification');
 
-        $this->info('Classification completed!');
-        $this->table(
-            ['Metric', 'Count'],
-            [
-                ['Total Products', $products->count()],
-                ['Successfully Classified', $classified],
-                ['Errors', $errors],
-            ]
-        );
-
-        return $errors > 0 ? self::FAILURE : self::SUCCESS;
+        return $this->classifyIndividually($classifier, $products);
     }
 
     private function getProductsToClassify(): Collection
@@ -153,5 +118,155 @@ class ClassifyProducts extends Command
 
         // Use configured classifier
         return app(FodmapClassifierInterface::class);
+    }
+
+    private function getBatchSize(FodmapClassifierInterface $classifier): int
+    {
+        $batchSize = (int) $this->option('batch-size');
+
+        // Validate batch size
+        if ($batchSize < 1) {
+            $batchSize = 10;
+        }
+
+        // Limit batch size for safety
+        if ($batchSize > 50) {
+            $this->warn('Batch size limited to 50 for API safety');
+            $batchSize = 50;
+        }
+
+        return $batchSize;
+    }
+
+    private function shouldUseBatchProcessing(FodmapClassifierInterface $classifier, int $productCount): bool
+    {
+        // Don't use batch for rule-based classifier
+        if (! $classifier instanceof GeminiFodmapClassifierService) {
+            return false;
+        }
+
+        // Respect the no-batch option
+        if ($this->option('no-batch')) {
+            return false;
+        }
+
+        // Only use batch processing if we have more than 1 product
+        return $productCount > 1;
+    }
+
+    private function classifyInBatches(FodmapClassifierInterface $classifier, Collection $products, int $batchSize): int
+    {
+        $bar = $this->output->createProgressBar($products->count());
+        $bar->start();
+
+        $classified = 0;
+        $errors     = 0;
+        $chunks     = $products->chunk($batchSize);
+
+        foreach ($chunks as $batch) {
+            try {
+                $results = $classifier->classifyBatch($batch->values()->all());
+
+                foreach ($batch as $index => $product) {
+                    $originalStatus = $product->status;
+                    $newStatus      = $results[$index] ?? 'UNKNOWN';
+
+                    $product->update([
+                        'status' => $newStatus,
+                    ]);
+                    ++$classified;
+
+                    if ($this->option('verbose')) {
+                        $this->newLine();
+                        $this->line('Product: ' . $product->name);
+                        $this->line('External ID: ' . $product->external_id);
+                        $this->line('Category: ' . $product->category);
+                        $this->line(sprintf('Status: %s → %s', $originalStatus, $newStatus));
+                        $this->line('---');
+                    }
+
+                    $bar->advance();
+                }
+            } catch (\Exception $e) {
+                $errors += $batch->count();
+
+                if ($this->option('verbose')) {
+                    $this->newLine();
+                    $this->error(sprintf('Failed to classify batch of %d products: %s', $batch->count(), $e->getMessage()));
+                }
+
+                $bar->advance($batch->count());
+            }
+        }
+
+        $bar->finish();
+        $this->newLine(2);
+
+        $this->info('Batch classification completed!');
+        $this->table(
+            ['Metric', 'Count'],
+            [
+                ['Total Products', $products->count()],
+                ['Successfully Classified', $classified],
+                ['Errors', $errors],
+                ['Batch Size Used', $batchSize],
+                ['Number of Batches', $chunks->count()],
+            ]
+        );
+
+        return $errors > 0 ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function classifyIndividually(FodmapClassifierInterface $classifier, Collection $products): int
+    {
+        $bar = $this->output->createProgressBar($products->count());
+        $bar->start();
+
+        $classified = 0;
+        $errors     = 0;
+
+        foreach ($products as $product) {
+            try {
+                $originalStatus = $product->status;
+                $newStatus      = $classifier->classify($product);
+
+                $product->update([
+                    'status' => $newStatus,
+                ]);
+                ++$classified;
+
+                if ($this->option('verbose')) {
+                    $this->newLine();
+                    $this->line('Product: ' . $product->name);
+                    $this->line('External ID: ' . $product->external_id);
+                    $this->line('Category: ' . $product->category);
+                    $this->line(sprintf('Status: %s → %s', $originalStatus, $newStatus));
+                    $this->line('---');
+                }
+            } catch (\Exception $e) {
+                ++$errors;
+                if ($this->option('verbose')) {
+                    $this->newLine();
+                    $this->error(sprintf('Failed to classify product %s: %s', $product->external_id, $e->getMessage()));
+                }
+            }
+
+            $bar->advance();
+        }
+
+        $bar->finish();
+        $this->newLine(2);
+
+        $this->info('Individual classification completed!');
+        $this->table(
+            ['Metric', 'Count'],
+            [
+                ['Total Products', $products->count()],
+                ['Successfully Classified', $classified],
+                ['Errors', $errors],
+            ]
+        );
+
+        return $errors > 0 ? self::FAILURE : self::SUCCESS;
     }
 }
