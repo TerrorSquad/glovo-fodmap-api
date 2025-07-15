@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\Product;
-use App\Services\FodmapClassifierInterface;
-use App\Services\FodmapClassifierService;
 use App\Services\GeminiFodmapClassifierService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
@@ -21,9 +19,7 @@ class ClassifyProducts extends Command
                             {--external-ids= : Comma-separated list of external IDs to classify}
                             {--all : Classify all products in the database}
                             {--force : Re-classify products even if they already have a status}
-                            {--ai : Use AI classifier (overrides config setting)}
-                            {--rules : Use rule-based classifier (overrides config setting)}
-                            {--batch-size=10 : Number of products to classify in each batch (AI only)}
+                            {--batch-size=10 : Number of products to classify in each batch}
                             {--no-batch : Disable batch processing and classify one by one}';
 
     /**
@@ -31,10 +27,9 @@ class ClassifyProducts extends Command
      */
     protected $description = 'Classify products using FODMAP classification service';
 
-    public function handle(FodmapClassifierInterface $classifier): int
+    public function handle(): int
     {
-        // Override classifier if specific option is provided
-        $classifier = $this->getClassifierInstance();
+        $classifier = app(GeminiFodmapClassifierService::class);
 
         $products = $this->getProductsToClassify();
 
@@ -46,16 +41,18 @@ class ClassifyProducts extends Command
 
         $this->info(sprintf('Found %d product(s) to classify.', $products->count()));
 
-        $batchSize      = $this->getBatchSize($classifier);
-        $shouldUseBatch = $this->shouldUseBatchProcessing($classifier, $products->count());
+        $batchSize      = $this->getBatchSize();
+        $shouldUseBatch = $this->shouldUseBatchProcessing($products->count());
 
         if ($shouldUseBatch && $batchSize > 1) {
             $this->info(sprintf('Using batch processing with batch size: %d', $batchSize));
+            $this->comment('⚠️  Note: Gemini API has rate limits (15 requests/minute). Large batches may take time.');
 
             return $this->classifyInBatches($classifier, $products, $batchSize);
         }
 
         $this->info('Using individual product classification');
+        $this->comment('⚠️  Note: Gemini API has rate limits. Individual classification will be slower.');
 
         return $this->classifyIndividually($classifier, $products);
     }
@@ -105,22 +102,7 @@ class ClassifyProducts extends Command
         })->get();
     }
 
-    private function getClassifierInstance(): FodmapClassifierInterface
-    {
-        // Check for override options
-        if ($this->option('ai')) {
-            return app(GeminiFodmapClassifierService::class);
-        }
-
-        if ($this->option('rules')) {
-            return app(FodmapClassifierService::class);
-        }
-
-        // Use configured classifier
-        return app(FodmapClassifierInterface::class);
-    }
-
-    private function getBatchSize(FodmapClassifierInterface $classifier): int
+    private function getBatchSize(): int
     {
         $batchSize = (int) $this->option('batch-size');
 
@@ -129,22 +111,17 @@ class ClassifyProducts extends Command
             $batchSize = 10;
         }
 
-        // Limit batch size for safety
-        if ($batchSize > 50) {
-            $this->warn('Batch size limited to 50 for API safety');
-            $batchSize = 50;
+        // Limit batch size to be more conservative with rate limits (Gemini 2.0 Flash free tier: 15 RPM)
+        if ($batchSize > 5) {
+            $this->warn('Batch size limited to 5 for Gemini API rate limits (15 RPM)');
+            $batchSize = 5;
         }
 
         return $batchSize;
     }
 
-    private function shouldUseBatchProcessing(FodmapClassifierInterface $classifier, int $productCount): bool
+    private function shouldUseBatchProcessing(int $productCount): bool
     {
-        // Don't use batch for rule-based classifier
-        if (! $classifier instanceof GeminiFodmapClassifierService) {
-            return false;
-        }
-
         // Respect the no-batch option
         if ($this->option('no-batch')) {
             return false;
@@ -154,7 +131,7 @@ class ClassifyProducts extends Command
         return $productCount > 1;
     }
 
-    private function classifyInBatches(FodmapClassifierInterface $classifier, Collection $products, int $batchSize): int
+    private function classifyInBatches(GeminiFodmapClassifierService $classifier, Collection $products, int $batchSize): int
     {
         $bar = $this->output->createProgressBar($products->count());
         $bar->start();
@@ -163,8 +140,14 @@ class ClassifyProducts extends Command
         $errors     = 0;
         $chunks     = $products->chunk($batchSize);
 
-        foreach ($chunks as $batch) {
+        foreach ($chunks as $chunkIndex => $batch) {
             try {
+                // Add delay between batches to respect rate limits
+                if ($chunkIndex > 0) {
+                    $this->comment('⏳ Waiting 5 seconds to respect API rate limits...');
+                    sleep(5);
+                }
+
                 $results = $classifier->classifyBatch($batch->values()->all());
 
                 foreach ($batch as $index => $product) {
@@ -217,7 +200,7 @@ class ClassifyProducts extends Command
         return $errors > 0 ? self::FAILURE : self::SUCCESS;
     }
 
-    private function classifyIndividually(FodmapClassifierInterface $classifier, Collection $products): int
+    private function classifyIndividually(GeminiFodmapClassifierService $classifier, Collection $products): int
     {
         $bar = $this->output->createProgressBar($products->count());
         $bar->start();
@@ -225,8 +208,13 @@ class ClassifyProducts extends Command
         $classified = 0;
         $errors     = 0;
 
-        foreach ($products as $product) {
+        foreach ($products as $index => $product) {
             try {
+                // Add delay between individual calls to respect rate limits (15 RPM = ~4 seconds between calls)
+                if ($index > 0) {
+                    sleep(4);
+                }
+
                 $originalStatus = $product->status;
                 $newStatus      = $classifier->classify($product);
 

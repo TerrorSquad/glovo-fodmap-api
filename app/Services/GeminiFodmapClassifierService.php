@@ -5,13 +5,33 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Product;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class GeminiFodmapClassifierService implements FodmapClassifierInterface
 {
+    private const RATE_LIMIT_KEY = 'gemini_api_calls';
+
+    private const MAX_CALLS_PER_MINUTE = 15;
+
+    // Gemini 2.0 Flash free tier limit
+    private const RATE_LIMIT_WINDOW = 60; // seconds
+
     public function classify(Product $product): string
     {
+        // Check rate limit before making API call
+        if (! $this->canMakeApiCall()) {
+            Log::warning('Gemini API rate limit reached, falling back to UNKNOWN', [
+                'product_name'  => $product->name,
+                'current_calls' => $this->getCurrentCallCount(),
+            ]);
+
+            return $product->status;
+        }
+
         try {
+            $this->incrementCallCount();
+
             $prompt = $this->buildPrompt($product);
 
             $geminiClient = \Gemini::client(config('gemini.api_key'));
@@ -19,6 +39,15 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
             $result = $geminiClient->generativeModel('gemini-2.0-flash-exp')->generateContent($prompt);
 
             $classification = trim($result->text());
+
+            // Debug logging for Serbian products
+            Log::info('Gemini classification debug', [
+                'product_name'   => $product->name,
+                'category'       => $product->category,
+                'raw_response'   => $classification,
+                'normalized'     => $this->normalizeClassification($classification),
+                'api_calls_used' => $this->getCurrentCallCount(),
+            ]);
 
             return $this->normalizeClassification($classification);
         } catch (\Exception $exception) {
@@ -43,7 +72,25 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
             return [$this->classify($products[0])];
         }
 
+        // Check rate limit before making API call
+        if (! $this->canMakeApiCall()) {
+            Log::warning('Gemini API rate limit reached for batch, falling back to individual classification', [
+                'product_count' => count($products),
+                'current_calls' => $this->getCurrentCallCount(),
+            ]);
+
+            // Fallback to individual classification (which also respects rate limits)
+            $results = [];
+            foreach ($products as $product) {
+                $results[] = $this->classify($product);
+            }
+
+            return $results;
+        }
+
         try {
+            $this->incrementCallCount();
+
             $prompt = $this->buildBatchPrompt($products);
 
             $geminiClient = \Gemini::client(config('gemini.api_key'));
@@ -51,6 +98,12 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
             $result = $geminiClient->generativeModel('gemini-2.0-flash-exp')->generateContent($prompt);
 
             $response = trim($result->text());
+
+            Log::info('Gemini batch classification debug', [
+                'product_count'  => count($products),
+                'api_calls_used' => $this->getCurrentCallCount(),
+                'raw_response'   => substr($response, 0, 200) . '...', // Log first 200 chars
+            ]);
 
             return $this->parseBatchResponse($response, $products);
         } catch (\Exception $exception) {
@@ -74,8 +127,36 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
         return <<<PROMPT
             You are a FODMAP classification expert. Classify the following product based on FODMAP content.
 
+            CRITICAL: Product names are in Serbian/Bosnian/Croatian/Montenegrin language. You MUST translate and understand them first.
+
+            Translation dictionary:
+            - "kokos" = coconut (LOW FODMAP in normal portions)
+            - "komad/komadići" = piece/pieces
+            - "očišćeni" = cleaned/peeled
+            - "instant kafa" = instant coffee (LOW FODMAP)
+            - "hleb/hljeb/kruh" = bread (HIGH if wheat, LOW if gluten-free)
+            - "mlijeko/mleko" = milk (HIGH FODMAP due to lactose)
+            - "jogurt" = yogurt (HIGH FODMAP due to lactose)
+            - "jabuka" = apple (HIGH FODMAP due to fructose)
+            - "kruška" = pear (HIGH FODMAP due to fructose)
+            - "luk" = onion (HIGH FODMAP due to fructans)
+            - "beli luk" = garlic (HIGH FODMAP due to fructans)
+            - "pasulj" = beans (HIGH FODMAP due to oligosaccharides)
+            - "sočivo" = lentil (HIGH FODMAP due to oligosaccharides)
+            - "čips" = chips
+            - "pšenica/pšenična" = wheat (HIGH FODMAP due to fructans)
+            - "bezglutenski" = gluten-free (usually LOW FODMAP)
+            - "keks" = biscuit/cookie
+            - "brašno" = flour
+            - "pirinač/riža" = rice (LOW FODMAP)
+            - "krompir/krumpir" = potato (LOW FODMAP)
+
             Product Name: {$product->name}
             Category: {$product->category}
+
+            STEP 1: Translate the product name to English first
+            STEP 2: Determine if it's food or non-food
+            STEP 3: If food, classify FODMAP level
 
             Classification Rules:
             - LOW: Food products that are generally safe for people with IBS (less than threshold amounts of FODMAPs)
@@ -84,10 +165,12 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
             - UNKNOWN: Food products where you cannot determine the FODMAP level with confidence
 
             Common HIGH FODMAP foods: wheat products, onions, garlic, beans, milk products, apples, pears, stone fruits, etc.
-            Common LOW FODMAP foods: rice, potatoes, carrots, spinach, chicken, fish, lactose-free dairy, oranges, strawberries, etc.
-            Non-food items: shampoo, detergent, toothpaste, cosmetics, cleaning supplies, etc.
+            Common LOW FODMAP foods: rice, potatoes, carrots, spinach, chicken, fish, lactose-free dairy, oranges, strawberries, COCONUT, etc.
 
-            Important: If this is clearly not a food product, classify it as "NA" regardless of FODMAP content.
+            EXAMPLE ANALYSIS:
+            "Kokos komad" = "Coconut piece" = FOOD = Coconut is LOW FODMAP = ANSWER: "low"
+            "Instant kafa" = "Instant coffee" = FOOD = Coffee is LOW FODMAP = ANSWER: "low"
+            "Pšenični hleb" = "Wheat bread" = FOOD = Wheat is HIGH FODMAP = ANSWER: "high"
 
             Respond with only one word: "low", "high", "na", or "unknown"
             PROMPT;
@@ -106,8 +189,37 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
         return <<<PROMPT
             You are a FODMAP classification expert. Classify the following products based on FODMAP content.
 
+            CRITICAL: Product names are in Serbian/Bosnian/Croatian/Montenegrin language. You MUST translate and understand them first.
+
+            Translation dictionary:
+            - "kokos" = coconut (LOW FODMAP in normal portions)
+            - "komad/komadići" = piece/pieces
+            - "očišćeni" = cleaned/peeled
+            - "instant kafa" = instant coffee (LOW FODMAP)
+            - "hleb/hljeb/kruh" = bread (HIGH if wheat, LOW if gluten-free)
+            - "mlijeko/mleko" = milk (HIGH FODMAP due to lactose)
+            - "jogurt" = yogurt (HIGH FODMAP due to lactose)
+            - "jabuka" = apple (HIGH FODMAP due to fructose)
+            - "kruška" = pear (HIGH FODMAP due to fructose)
+            - "luk" = onion (HIGH FODMAP due to fructans)
+            - "beli luk" = garlic (HIGH FODMAP due to fructans)
+            - "pasulj" = beans (HIGH FODMAP due to oligosaccharides)
+            - "sočivo" = lentil (HIGH FODMAP due to oligosaccharides)
+            - "čips" = chips
+            - "pšenica/pšenična" = wheat (HIGH FODMAP due to fructans)
+            - "bezglutenski" = gluten-free (usually LOW FODMAP)
+            - "keks" = biscuit/cookie
+            - "brašno" = flour
+            - "pirinač/riža" = rice (LOW FODMAP)
+            - "krompir/krumpir" = potato (LOW FODMAP)
+
             Products to classify:
             {$productList}
+
+            For each product:
+            STEP 1: Translate the product name to English first
+            STEP 2: Determine if it's food or non-food
+            STEP 3: If food, classify FODMAP level
 
             Classification Rules:
             - LOW: Food products that are generally safe for people with IBS (less than threshold amounts of FODMAPs)
@@ -116,16 +228,13 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
             - UNKNOWN: Food products where you cannot determine the FODMAP level with confidence
 
             Common HIGH FODMAP foods: wheat products, onions, garlic, beans, milk products, apples, pears, stone fruits, etc.
-            Common LOW FODMAP foods: rice, potatoes, carrots, spinach, chicken, fish, lactose-free dairy, oranges, strawberries, etc.
-            
-            Non-food items include: shampoo, detergent, toothpaste, cosmetics, cleaning supplies, toilet paper, tissues, soap, household cleaners, personal care items, etc.
+            Common LOW FODMAP foods: rice, potatoes, carrots, spinach, chicken, fish, lactose-free dairy, oranges, strawberries, COCONUT, etc.
 
-            CRITICAL: Carefully examine each product. If ANY product is clearly not a food product (cleaning, household, personal care, cosmetics, etc.), it MUST be classified as "NA" regardless of any other considerations.
-
-            For each product:
-            1. First determine: Is this a food product or non-food product?
-            2. If non-food: classify as "na"
-            3. If food: evaluate FODMAP content and classify as "low", "high", or "unknown"
+            EXAMPLE ANALYSIS:
+            "Kokos komad" = "Coconut piece" = FOOD = Coconut is LOW FODMAP = ANSWER: "low"
+            "Instant kafa" = "Instant coffee" = FOOD = Coffee is LOW FODMAP = ANSWER: "low"
+            "Pšenični hleb" = "Wheat bread" = FOOD = Wheat is HIGH FODMAP = ANSWER: "high"
+            "Čips od sočiva" = "Lentil chips" = FOOD = Lentils are HIGH FODMAP = ANSWER: "high"
 
             Respond with classifications in the exact format:
             1: [classification]
@@ -157,6 +266,7 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
                 }
             }
         }
+
         // Fill in any missing results with UNKNOWN
         $counter = count($products);
 
@@ -195,5 +305,37 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
         }
 
         return 'UNKNOWN';
+    }
+
+    /**
+     * Check if we can make an API call without exceeding rate limits.
+     */
+    private function canMakeApiCall(): bool
+    {
+        return $this->getCurrentCallCount() < self::MAX_CALLS_PER_MINUTE;
+    }
+
+    /**
+     * Get current number of API calls in the current minute window.
+     */
+    private function getCurrentCallCount(): int
+    {
+        return (int) Cache::get(self::RATE_LIMIT_KEY, 0);
+    }
+
+    /**
+     * Increment the API call counter.
+     */
+    private function incrementCallCount(): void
+    {
+        $currentCount = $this->getCurrentCallCount();
+
+        if ($currentCount === 0) {
+            // First call in the window, set TTL to the window duration
+            Cache::put(self::RATE_LIMIT_KEY, 1, self::RATE_LIMIT_WINDOW);
+        } else {
+            // Increment existing counter, preserve existing TTL
+            Cache::increment(self::RATE_LIMIT_KEY);
+        }
     }
 }
