@@ -8,14 +8,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\ClassifyProductsRequest;
 use App\Http\Resources\Api\V1\ProductResource;
 use App\Models\Product;
-use App\Services\FodmapClassifierService;
+use App\Services\FodmapClassifierInterface;
 use Illuminate\Http\JsonResponse;
 
 class ProductController extends Controller
 {
     public function classify(
         ClassifyProductsRequest $request,
-        FodmapClassifierService $classifier
+        FodmapClassifierInterface $classifier
     ): JsonResponse {
         $incomingProducts = collect($request->validated()['products']);
         $externalIds      = $incomingProducts->pluck('externalId')->unique();

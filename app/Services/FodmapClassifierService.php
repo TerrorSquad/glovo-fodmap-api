@@ -7,7 +7,7 @@ namespace App\Services;
 use App\Models\Product;
 use Illuminate\Support\Str;
 
-class FodmapClassifierService
+class FodmapClassifierService implements FodmapClassifierInterface
 {
     private readonly array $lowFodmapData;
 
@@ -17,9 +17,18 @@ class FodmapClassifierService
 
     public function __construct()
     {
-        $this->lowFodmapData  = config('fodmap.low');
-        $this->highFodmapData = config('fodmap.high');
-        $this->ignoreList     = config('fodmap.ignore', []);
+        $lowConfig  = config('fodmap.low');
+        $highConfig = config('fodmap.high');
+
+        $this->lowFodmapData = is_array($lowConfig) && isset($lowConfig['keywords'])
+            ? $lowConfig['keywords']
+            : (is_array($lowConfig) ? $lowConfig : []);
+
+        $this->highFodmapData = is_array($highConfig) && isset($highConfig['keywords'])
+            ? $highConfig['keywords']
+            : (is_array($highConfig) ? $highConfig : []);
+
+        $this->ignoreList = config('fodmap.ignore', []);
     }
 
     public function classify(Product $product): string
@@ -35,6 +44,17 @@ class FodmapClassifierService
         }
 
         return 'UNKNOWN';
+    }
+
+    public function classifyBatch(array $products): array
+    {
+        $results = [];
+
+        foreach ($products as $product) {
+            $results[] = $this->classify($product);
+        }
+
+        return $results;
     }
 
     private function normalize(string $text): string

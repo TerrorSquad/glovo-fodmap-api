@@ -1,7 +1,8 @@
 <?php
 
-return [
+declare(strict_types=1);
 
+return [
     /*
     |--------------------------------------------------------------------------
     | Application Name
@@ -120,7 +121,19 @@ return [
 
     'maintenance' => [
         'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
-        'store' => env('APP_MAINTENANCE_STORE', 'database'),
+        'store'  => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | FODMAP Classifier Configuration
+    |--------------------------------------------------------------------------
+    |
+    | This option controls which FODMAP classifier implementation to use.
+    | When true, the Gemini AI classifier will be used. When false, the
+    | rule-based classifier will be used.
+    |
+    */
+
+    'use_gemini_classifier' => env('USE_GEMINI_CLASSIFIER', false),
 ];

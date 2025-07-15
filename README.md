@@ -4,6 +4,8 @@ A Laravel-based REST API that classifies food products based on their FODMAP con
 
 ## 🚀 Features
 
+- **AI-Powered Classification**: Uses Google Gemini AI for intelligent FODMAP classification
+- **Dual Classification System**: Choose between AI-powered or rule-based classification
 - **Product Classification**: Automatically classifies products as HIGH, LOW, or UNKNOWN FODMAP content
 - **Batch Processing**: Handle multiple products in a single API request
 - **Smart Caching**: Avoids re-processing already classified products
@@ -82,6 +84,31 @@ This project includes a smart runner script that automatically detects your envi
 ./tools/runner.sh composer install
 ./tools/runner.sh pnpm dev
 ```
+
+## 🤖 AI Classification Setup
+
+This project supports both rule-based and AI-powered classification using Google Gemini.
+
+### Enable Gemini AI Classification
+
+1. **Get your Gemini API key** from [Google AI Studio](https://aistudio.google.com/app/apikey)
+
+2. **Add to your `.env` file**:
+   ```env
+   GEMINI_API_KEY=your_api_key_here
+   USE_GEMINI_CLASSIFIER=true
+   ```
+
+3. **Switch between classifiers**:
+   - `USE_GEMINI_CLASSIFIER=true` - Uses AI-powered Gemini classification
+   - `USE_GEMINI_CLASSIFIER=false` - Uses rule-based classification (default)
+
+### Benefits of AI Classification
+
+- **Intelligent Analysis**: Leverages Gemini's knowledge of food and FODMAP content
+- **Better Accuracy**: Handles complex and uncommon food products
+- **Contextual Understanding**: Considers product names and categories together
+- **Fallback Safety**: Falls back to "unknown" classification if API fails
 
 ## 📖 API Usage
 
