@@ -12,9 +12,9 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
 {
     private const RATE_LIMIT_KEY = 'gemini_api_calls';
 
-    private const MAX_CALLS_PER_MINUTE = 15;
+    private const MAX_CALLS_PER_MINUTE = 1000;
 
-    // Gemini 2.0 Flash free tier limit
+    // Gemini 2.0 Flash Tier 1 limit (much higher than free tier)
     private const RATE_LIMIT_WINDOW = 60; // seconds
 
     public function classify(Product $product): string

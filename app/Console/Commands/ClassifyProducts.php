@@ -47,13 +47,13 @@ class ClassifyProducts extends Command
 
         if ($shouldUseBatch && $batchSize > 1) {
             $this->info(sprintf('Using batch processing with batch size: %d', $batchSize));
-            $this->comment('⚠️  Note: Gemini API has rate limits (15 requests/minute). Large batches may take time.');
+            $this->comment('⚠️  Note: Gemini API Tier 1 has high rate limits. Large batches will process quickly.');
 
             return $this->classifyInBatches($classifier, $products, $batchSize);
         }
 
         $this->info('Using individual product classification');
-        $this->comment('⚠️  Note: Gemini API has rate limits. Individual classification will be slower.');
+        $this->comment('⚠️  Note: Individual classification will be slower than batch processing.');
 
         return $this->classifyIndividually($classifier, $products);
     }
@@ -124,10 +124,10 @@ class ClassifyProducts extends Command
             $batchSize = 10;
         }
 
-        // Limit batch size to be more conservative with rate limits (Gemini 2.0 Flash free tier: 15 RPM)
-        if ($batchSize > 5) {
-            $this->warn('Batch size limited to 5 for Gemini API rate limits (15 RPM)');
-            $batchSize = 5;
+        // Limit batch size for optimal performance with Gemini 2.0 Flash (Tier 1 has much higher rate limits)
+        if ($batchSize > 50) {
+            $this->warn('Batch size limited to 50 for optimal Gemini API performance');
+            $batchSize = 50;
         }
 
         return $batchSize;
@@ -155,7 +155,7 @@ class ClassifyProducts extends Command
 
         foreach ($chunks as $chunkIndex => $batch) {
             try {
-                // Add delay between batches to respect rate limits
+                // Add delay between batches to respect API rate limits (conservative approach)
                 if ($chunkIndex > 0) {
                     $this->comment('⏳ Waiting 5 seconds to respect API rate limits...');
                     sleep(5);
@@ -224,7 +224,7 @@ class ClassifyProducts extends Command
 
         foreach ($products as $index => $product) {
             try {
-                // Add delay between individual calls to respect rate limits (15 RPM = ~4 seconds between calls)
+                // Add delay between individual calls to respect rate limits (conservative approach)
                 if ($index > 0) {
                     sleep(4);
                 }
