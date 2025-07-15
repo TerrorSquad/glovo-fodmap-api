@@ -19,6 +19,7 @@ class ClassifyProducts extends Command
                             {--external-ids= : Comma-separated list of external IDs to classify}
                             {--all : Classify all products in the database}
                             {--force : Re-classify products even if they already have a status}
+                            {--reprocess : Re-classify products that have already been processed}
                             {--batch-size=10 : Number of products to classify in each batch}
                             {--no-batch : Disable batch processing and classify one by one}';
 
@@ -73,14 +74,20 @@ class ClassifyProducts extends Command
 
         if ($this->option('all')) {
             if (! $this->option('force')) {
-                // Only classify products without status or with 'unknown' or 'PENDING' status
+                // Only classify products that haven't been processed OR have specific statuses that need reprocessing
                 $query->where(function ($q): void {
-                    $q->whereNull('status')
-                        ->orWhere('status', 'unknown')
-                        ->orWhere('status', 'UNKNOWN')
-                        ->orWhere('status', 'PENDING')
-                        ->orWhere('status', '')
-                    ;
+                    if (! $this->option('reprocess')) {
+                        $q->whereNull('processed_at'); // Never been processed
+                    }
+
+                    $q->where(function ($subQ): void {
+                        $subQ->whereNull('status')
+                            ->orWhere('status', 'unknown')
+                            ->orWhere('status', 'UNKNOWN')
+                            ->orWhere('status', 'PENDING')
+                            ->orWhere('status', '')
+                        ;
+                    });
                 });
             }
 
@@ -93,12 +100,18 @@ class ClassifyProducts extends Command
         }
 
         return $query->where(function ($q): void {
-            $q->whereNull('status')
-                ->orWhere('status', 'unknown')
-                ->orWhere('status', 'UNKNOWN')
-                ->orWhere('status', 'PENDING')
-                ->orWhere('status', '')
-            ;
+            if (! $this->option('reprocess')) {
+                $q->whereNull('processed_at'); // Never been processed
+            }
+
+            $q->where(function ($subQ): void {
+                $subQ->whereNull('status')
+                    ->orWhere('status', 'unknown')
+                    ->orWhere('status', 'UNKNOWN')
+                    ->orWhere('status', 'PENDING')
+                    ->orWhere('status', '')
+                ;
+            });
         })->get();
     }
 
@@ -155,7 +168,8 @@ class ClassifyProducts extends Command
                     $newStatus      = $results[$index] ?? 'UNKNOWN';
 
                     $product->update([
-                        'status' => $newStatus,
+                        'status'       => $newStatus,
+                        'processed_at' => now(),
                     ]);
                     ++$classified;
 
@@ -219,7 +233,8 @@ class ClassifyProducts extends Command
                 $newStatus      = $classifier->classify($product);
 
                 $product->update([
-                    'status' => $newStatus,
+                    'status'       => $newStatus,
+                    'processed_at' => now(),
                 ]);
                 ++$classified;
 
