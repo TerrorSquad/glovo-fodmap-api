@@ -12,7 +12,7 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
 {
     private const RATE_LIMIT_KEY = 'gemini_api_calls';
 
-    private const MAX_CALLS_PER_MINUTE = 30; // 1 request per 2 seconds = 30 per minute
+    private const MAX_CALLS_PER_MINUTE = 60; // Increased for better performance - 1 request per second
 
     // Conservative rate limiting for stability
     private const RATE_LIMIT_WINDOW = 60; // seconds
@@ -21,12 +21,13 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
     {
         // Check rate limit before making API call
         if (! $this->canMakeApiCall()) {
-            Log::warning('Gemini API rate limit reached, falling back to UNKNOWN', [
+            Log::warning('Gemini API rate limit reached, waiting before retry', [
                 'product_name'  => $product->name,
                 'current_calls' => $this->getCurrentCallCount(),
             ]);
 
-            return $product->status;
+            // Wait 2 seconds before proceeding
+            sleep(2);
         }
 
         try {
@@ -72,21 +73,8 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
             return [$this->classify($products[0])];
         }
 
-        // Check rate limit before making API call
-        if (! $this->canMakeApiCall()) {
-            Log::warning('Gemini API rate limit reached for batch, falling back to individual classification', [
-                'product_count' => count($products),
-                'current_calls' => $this->getCurrentCallCount(),
-            ]);
-
-            // Fallback to individual classification (which also respects rate limits)
-            $results = [];
-            foreach ($products as $product) {
-                $results[] = $this->classify($product);
-            }
-
-            return $results;
-        }
+        // For queue jobs, guarantee batch processing - wait for rate limit
+        $this->waitForRateLimit();
 
         try {
             $this->incrementCallCount();
@@ -112,13 +100,9 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
                 'error'         => $exception->getMessage(),
             ]);
 
-            // Fallback to individual classification
-            $results = [];
-            foreach ($products as $product) {
-                $results[] = $this->classify($product);
-            }
-
-            return $results;
+            // For queue jobs, maintain batch processing by returning UNKNOWN for all
+            // Individual classification can still fallback to individual calls
+            return array_fill(0, count($products), 'UNKNOWN');
         }
     }
 
@@ -335,6 +319,31 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
         } else {
             // Increment existing counter, preserve existing TTL
             Cache::increment(self::RATE_LIMIT_KEY);
+        }
+    }
+
+    /**
+     * Wait for rate limit to allow API calls.
+     */
+    private function waitForRateLimit(int $maxAttempts = 30): void
+    {
+        $attempts = 0;
+        while (! $this->canMakeApiCall() && $attempts < $maxAttempts) {
+            Log::info('Waiting for rate limit', [
+                'attempt'       => $attempts + 1,
+                'current_calls' => $this->getCurrentCallCount(),
+                'max_calls'     => self::MAX_CALLS_PER_MINUTE,
+            ]);
+
+            sleep(2);
+            ++$attempts;
+        }
+
+        if (! $this->canMakeApiCall()) {
+            Log::warning('Rate limit wait timeout reached', [
+                'max_attempts'  => $maxAttempts,
+                'current_calls' => $this->getCurrentCallCount(),
+            ]);
         }
     }
 }
