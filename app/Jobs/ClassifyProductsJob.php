@@ -32,38 +32,40 @@ class ClassifyProductsJob implements ShouldQueue
         ]);
 
         try {
-            // Prepare products for batch classification
-            $productsForClassification = [];
-            foreach ($this->productsData as $data) {
-                $productsForClassification[] = new Product([
-                    'external_id' => $data['external_id'],
-                    'name'        => $data['name'],
-                    'category'    => $data['category'],
+            // Fetch actual Product models from database for classification
+            $externalIds = array_column($this->productsData, 'external_id');
+            $products    = Product::whereIn('external_id', $externalIds)->get();
+
+            if ($products->isEmpty()) {
+                Log::warning('No products found for classification', [
+                    'external_ids' => $externalIds,
                 ]);
+
+                return;
             }
 
             // Use batch classification for performance
-            $classificationResults = $classifier->classifyBatch($productsForClassification);
+            $classificationResults = $classifier->classifyBatch($products->all());
 
-            // Prepare data for bulk insert
-            $productsToInsert = [];
-            foreach ($this->productsData as $index => $data) {
-                $productsToInsert[] = [
-                    'external_id'  => $data['external_id'],
-                    'name'         => $data['name'],
-                    'category'     => $data['category'],
-                    'status'       => $classificationResults[$index] ?? 'UNKNOWN',
+            // Update products with classification results
+            foreach ($products as $index => $product) {
+                $originalStatus = $product->status;
+                $newStatus      = $classificationResults[$index] ?? 'UNKNOWN';
+
+                $product->update([
+                    'status'       => $newStatus,
                     'processed_at' => now(),
-                    'created_at'   => now(),
-                    'updated_at'   => now(),
-                ];
+                ]);
+
+                Log::debug('Product classified', [
+                    'external_id' => $product->external_id,
+                    'name'        => $product->name,
+                    'status'      => $originalStatus . ' → ' . $newStatus,
+                ]);
             }
 
-            // Insert all products at once
-            Product::insert($productsToInsert);
-
             Log::info('Background classification completed successfully', [
-                'product_count' => count($this->productsData),
+                'product_count' => $products->count(),
                 'classified'    => count($classificationResults),
             ]);
         } catch (\Exception $exception) {
@@ -73,21 +75,13 @@ class ClassifyProductsJob implements ShouldQueue
                 'trace'         => $exception->getTraceAsString(),
             ]);
 
-            // Insert products with UNKNOWN status as fallback
-            $fallbackProducts = [];
-            foreach ($this->productsData as $data) {
-                $fallbackProducts[] = [
-                    'external_id'  => $data['external_id'],
-                    'name'         => $data['name'],
-                    'category'     => $data['category'],
-                    'status'       => 'UNKNOWN',
-                    'processed_at' => now(),
-                    'created_at'   => now(),
-                    'updated_at'   => now(),
-                ];
-            }
-
-            Product::insert($fallbackProducts);
+            // Update products with UNKNOWN status as fallback
+            $externalIds = array_column($this->productsData, 'external_id');
+            Product::whereIn('external_id', $externalIds)->update([
+                'status'       => 'UNKNOWN',
+                'processed_at' => now(),
+                'updated_at'   => now(),
+            ]);
 
             throw $exception; // Re-throw for queue retry mechanism
         }

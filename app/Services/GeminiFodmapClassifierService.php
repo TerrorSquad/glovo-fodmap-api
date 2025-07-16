@@ -12,9 +12,9 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
 {
     private const RATE_LIMIT_KEY = 'gemini_api_calls';
 
-    private const MAX_CALLS_PER_MINUTE = 1000;
+    private const MAX_CALLS_PER_MINUTE = 30; // 1 request per 2 seconds = 30 per minute
 
-    // Gemini 2.0 Flash Tier 1 limit (much higher than free tier)
+    // Conservative rate limiting for stability
     private const RATE_LIMIT_WINDOW = 60; // seconds
 
     public function classify(Product $product): string
@@ -36,7 +36,7 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
 
             $geminiClient = \Gemini::client(config('gemini.api_key'));
 
-            $result = $geminiClient->generativeModel('gemini-2.0-flash-exp')->generateContent($prompt);
+            $result = $geminiClient->generativeModel('models/gemini-2.5-flash-lite-preview-06-17')->generateContent($prompt);
 
             $classification = trim($result->text());
 
@@ -95,7 +95,7 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
 
             $geminiClient = \Gemini::client(config('gemini.api_key'));
 
-            $result = $geminiClient->generativeModel('gemini-2.0-flash-exp')->generateContent($prompt);
+            $result = $geminiClient->generativeModel('models/gemini-2.5-flash-lite-preview-06-17')->generateContent($prompt);
 
             $response = trim($result->text());
 
@@ -130,6 +130,13 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
             CRITICAL: Product names are in Serbian/Bosnian/Croatian/Montenegrin language. You MUST translate and understand them first.
 
             Translation dictionary:
+            - "liker" = liqueur (ALCOHOLIC BEVERAGE - usually LOW FODMAP)
+            - "rakija" = brandy/rakia (ALCOHOLIC BEVERAGE - LOW FODMAP)
+            - "kulen" = kulen sausage (MEAT PRODUCT - LOW FODMAP)
+            - "slajs" = slices (LOW FODMAP)
+            - "kobasica" = sausage (MEAT PRODUCT - LOW FODMAP)
+            - "mesne prerađevine" = meat products (LOW FODMAP)
+            - "ostala žestoka pića" = other spirits/alcoholic beverages (LOW FODMAP)
             - "kokos" = coconut (LOW FODMAP in normal portions)
             - "komad/komadići" = piece/pieces
             - "očišćeni" = cleaned/peeled
@@ -165,12 +172,19 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
             - UNKNOWN: Food products where you cannot determine the FODMAP level with confidence
 
             Common HIGH FODMAP foods: wheat products, onions, garlic, beans, milk products, apples, pears, stone fruits, etc.
-            Common LOW FODMAP foods: rice, potatoes, carrots, spinach, chicken, fish, lactose-free dairy, oranges, strawberries, COCONUT, etc.
+            Common LOW FODMAP foods: rice, potatoes, carrots, spinach, chicken, fish, lactose-free dairy, oranges, strawberries, COCONUT, MEAT PRODUCTS, ALCOHOLIC BEVERAGES, etc.
+
+            IMPORTANT CLASSIFICATIONS:
+            - ALL MEAT PRODUCTS (kulen, kobasica, sausages, etc.) = LOW FODMAP
+            - ALL ALCOHOLIC BEVERAGES (liker, rakija, vodka, wine, beer, etc.) = LOW FODMAP
+            - SIMPLE VEGETABLES AND FRUITS (except high FODMAP ones) = LOW FODMAP
 
             EXAMPLE ANALYSIS:
             "Kokos komad" = "Coconut piece" = FOOD = Coconut is LOW FODMAP = ANSWER: "low"
             "Instant kafa" = "Instant coffee" = FOOD = Coffee is LOW FODMAP = ANSWER: "low"
             "Pšenični hleb" = "Wheat bread" = FOOD = Wheat is HIGH FODMAP = ANSWER: "high"
+            "Kulen slajs" = "Kulen slices" = MEAT PRODUCT = Meat is LOW FODMAP = ANSWER: "low"
+            "Liker od maline" = "Raspberry liqueur" = ALCOHOLIC BEVERAGE = Alcohol is LOW FODMAP = ANSWER: "low"
 
             Respond with only one word: "low", "high", "na", or "unknown"
             PROMPT;
@@ -192,6 +206,10 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
             CONTEXT: These are real products sold on Glovo delivery app in Serbia. Product names are in Serbian/Bosnian/Croatian/Montenegrin languages. Use the category field to help understand what type of product it is.
 
             Key Serbian food terms to recognize:
+            - "liker/rakija" = alcoholic beverages (LOW FODMAP)
+            - "kulen/kobasica/slajs" = meat products/sausages (LOW FODMAP)
+            - "mesne prerađevine" = meat products category (LOW FODMAP)
+            - "ostala žestoka pića" = alcoholic beverages category (LOW FODMAP)
             - "čips/chips" = chips/crisps, "keks" = biscuit/cookie, "kreker" = cracker
             - "bezglutenski/gluten free/GF" = gluten-free (usually LOW FODMAP)
             - "pšenica/pšenična" = wheat (HIGH FODMAP), "ječam" = barley (HIGH FODMAP)
@@ -200,7 +218,6 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
             - "pasulj" = beans (HIGH FODMAP), "sočivo" = lentils (HIGH FODMAP)
             - "pirinač/riža" = rice (LOW FODMAP), "krompir" = potato (LOW FODMAP)
             - "meso/mesa" = meat (LOW FODMAP), "riba" = fish (LOW FODMAP)
-            - "alkohol/rakija/vino/pivo" = alcoholic beverages
 
             Products to classify:
             {$productList}
@@ -216,10 +233,12 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
             - NA: Non-food items (cosmetics, cleaning products, toiletries, household items)
             - UNKNOWN: Food but ingredients unclear or complex formulations
 
-            IMPORTANT: 
+            IMPORTANT:
+            - Products in "Mesne Prerađevine" (meat products) category are LOW FODMAP
+            - Products in "Ostala Žestoka Pića" (alcoholic beverages) category are LOW FODMAP
             - Products in "Gluten free" category are usually LOW FODMAP
             - Simple meat, fish, vegetable products are usually LOW FODMAP
-            - Plain alcoholic beverages (rakija, vodka, wine) are usually LOW FODMAP
+            - Plain alcoholic beverages (rakija, vodka, wine, liker) are LOW FODMAP
             - Be confident - most single-ingredient or simple products can be classified
 
             Respond ONLY in this exact format:

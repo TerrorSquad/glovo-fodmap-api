@@ -121,13 +121,13 @@ class ClassifyProducts extends Command
 
         // Validate batch size
         if ($batchSize < 1) {
-            $batchSize = 10;
+            $batchSize = 50; // Better default for Gemini 2.5 Flash Lite
         }
 
-        // Limit batch size for optimal performance with Gemini 2.0 Flash (Tier 1 has much higher rate limits)
-        if ($batchSize > 50) {
-            $this->warn('Batch size limited to 50 for optimal Gemini API performance');
-            $batchSize = 50;
+        // Limit batch size for optimal performance with Gemini 2.5 Flash Lite
+        if ($batchSize > 100) {
+            $this->warn('Batch size limited to 100 for optimal Gemini API performance');
+            $batchSize = 100;
         }
 
         return $batchSize;
@@ -155,15 +155,15 @@ class ClassifyProducts extends Command
 
         foreach ($chunks as $chunkIndex => $batch) {
             try {
-                // Add delay between batches to respect API rate limits (conservative approach)
+                // Add delay between batches to respect API rate limits (1 request per 2 seconds)
                 if ($chunkIndex > 0) {
-                    $this->comment('⏳ Waiting 5 seconds to respect API rate limits...');
-                    sleep(5);
+                    $this->comment('⏳ Waiting 2 seconds to respect API rate limits...');
+                    sleep(2);
                 }
 
                 $results = $classifier->classifyBatch($batch->values()->all());
 
-                foreach ($batch as $index => $product) {
+                foreach ($batch->values() as $index => $product) {
                     $originalStatus = $product->status;
                     $newStatus      = $results[$index] ?? 'UNKNOWN';
 
@@ -224,9 +224,9 @@ class ClassifyProducts extends Command
 
         foreach ($products as $index => $product) {
             try {
-                // Add delay between individual calls to respect rate limits (conservative approach)
+                // Add delay between individual calls to respect rate limits (1 request per 2 seconds)
                 if ($index > 0) {
-                    sleep(4);
+                    sleep(2);
                 }
 
                 $originalStatus = $product->status;
