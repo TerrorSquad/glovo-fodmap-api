@@ -10,13 +10,14 @@ use Illuminate\Support\Carbon;
 use OpenApi\Attributes as OA;
 
 /**
- * @property int    $id
- * @property string $external_id
- * @property string $name
- * @property string $category
- * @property string $status
- * @property Carbon $created_at
- * @property Carbon $updated_at
+ * @property int         $id
+ * @property string      $external_id
+ * @property string      $name
+ * @property string      $category
+ * @property string      $status
+ * @property Carbon      $created_at
+ * @property Carbon      $updated_at
+ * @property null|Carbon $processed_at
  */
 #[OA\Schema(
     schema: 'ProductResource',
@@ -36,6 +37,7 @@ use OpenApi\Attributes as OA;
         ),
         new OA\Property(property: 'createdAt', description: 'When the product was first submitted', type: 'string', format: 'date-time'),
         new OA\Property(property: 'updatedAt', description: 'When the product was last updated', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'processedAt', description: 'When the product was classified (null if still pending)', type: 'string', format: 'date-time', nullable: true),
     ]
 )]
 class ProductResource extends JsonResource
@@ -48,13 +50,14 @@ class ProductResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id'         => $this->id,
-            'externalId' => $this->external_id,
-            'name'       => $this->name,
-            'category'   => $this->category,
-            'status'     => $this->status,
-            'createdAt'  => $this->created_at,
-            'updatedAt'  => $this->updated_at,
+            'id'          => $this->id,
+            'externalId'  => $this->external_id,
+            'name'        => $this->name,
+            'category'    => $this->category,
+            'status'      => $this->status,
+            'createdAt'   => $this->created_at,
+            'updatedAt'   => $this->updated_at,
+            'processedAt' => $this->processed_at,
         ];
     }
 }
