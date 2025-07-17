@@ -140,7 +140,7 @@ class ProductController extends Controller
         $missingIds = array_diff($externalIds, $foundIds);
 
         $statusData = [
-            'results'     => $products,
+            'products'    => $products,
             'found'       => $products->count(),
             'missing'     => count($missingIds),
             'missing_ids' => $missingIds,
