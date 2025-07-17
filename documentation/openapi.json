@@ -1,0 +1,398 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Glovo FODMAP API",
+        "description": "API for classifying food products as LOW, MODERATE, or HIGH FODMAP using Google Gemini AI",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "https://glovo-fodmap-api.fly.dev/api",
+            "description": "Production server"
+        },
+        {
+            "url": "http://localhost:8000/api",
+            "description": "Development server"
+        }
+    ],
+    "paths": {
+        "/health": {
+            "get": {
+                "tags": [
+                    "System"
+                ],
+                "summary": "Health check",
+                "description": "Check if the API is running and healthy",
+                "operationId": "0155ad0b90f97b015e9f68894401ade0",
+                "responses": {
+                    "200": {
+                        "description": "API is healthy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "ok"
+                                        },
+                                        "timestamp": {
+                                            "type": "string",
+                                            "format": "date-time"
+                                        },
+                                        "version": {
+                                            "type": "string",
+                                            "example": "1.0.0"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/docs/openapi.json": {
+            "get": {
+                "tags": [
+                    "Documentation"
+                ],
+                "summary": "Get OpenAPI specification (JSON)",
+                "description": "Returns the complete OpenAPI 3.0 specification for this API in JSON format",
+                "operationId": "63df77a7a3be6ed52fe3c907df2bafd6",
+                "responses": {
+                    "200": {
+                        "description": "OpenAPI specification in JSON format",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                },
+                                "example": {
+                                    "openapi": "3.0.0",
+                                    "info": {
+                                        "title": "Glovo FODMAP API",
+                                        "version": "1.0.0"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "OpenAPI specification file not found"
+                    }
+                }
+            }
+        },
+        "/docs/openapi.yaml": {
+            "get": {
+                "tags": [
+                    "Documentation"
+                ],
+                "summary": "Get OpenAPI specification (YAML)",
+                "description": "Returns the complete OpenAPI 3.0 specification for this API in YAML format",
+                "operationId": "d1198cae92eac9568f501bb4d1df4045",
+                "responses": {
+                    "200": {
+                        "description": "OpenAPI specification in YAML format",
+                        "content": {
+                            "text/yaml": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "OpenAPI specification file not found"
+                    }
+                }
+            }
+        },
+        "/v1/products/submit": {
+            "post": {
+                "tags": [
+                    "Products"
+                ],
+                "summary": "Submit products for FODMAP classification",
+                "description": "Submit one or more products to be classified as LOW, MODERATE, or HIGH FODMAP in the background. Products are processed asynchronously using AI classification.",
+                "operationId": "85db77b7da6d9102fe74735da75f1cf2",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ProductSubmissionRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Products successfully submitted for classification",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SubmissionResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/products/status": {
+            "post": {
+                "tags": [
+                    "Products"
+                ],
+                "summary": "Get product classification status",
+                "description": "Check the current FODMAP classification status for products by their external IDs. Returns detailed information about found products and lists any missing IDs.",
+                "operationId": "d4b5edc94193869d6f414513756cdd2f",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ProductStatusRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Product status information",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProductStatusResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ProductResource": {
+                "title": "Product Resource",
+                "description": "Product resource response with FODMAP classification status",
+                "properties": {
+                    "id": {
+                        "description": "Internal database ID",
+                        "type": "integer",
+                        "example": 123
+                    },
+                    "externalId": {
+                        "description": "External system identifier",
+                        "type": "string",
+                        "example": "glovo-123"
+                    },
+                    "name": {
+                        "description": "Product name",
+                        "type": "string",
+                        "example": "Banana"
+                    },
+                    "category": {
+                        "description": "Product category",
+                        "type": "string",
+                        "example": "Fruit"
+                    },
+                    "status": {
+                        "description": "FODMAP classification status: PENDING (not yet processed), LOW (safe for IBS), MODERATE (limited portions), HIGH (avoid), UNKNOWN (classification failed)",
+                        "type": "string",
+                        "enum": [
+                            "PENDING",
+                            "LOW",
+                            "MODERATE",
+                            "HIGH",
+                            "UNKNOWN"
+                        ],
+                        "example": "LOW"
+                    },
+                    "createdAt": {
+                        "description": "When the product was first submitted",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updatedAt": {
+                        "description": "When the product was last updated",
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "ProductStatusResponse": {
+                "title": "Product Status Response",
+                "description": "Response containing product status information with found and missing products",
+                "properties": {
+                    "results": {
+                        "description": "Array of found products with their classification status",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ProductResource"
+                        }
+                    },
+                    "found": {
+                        "description": "Number of products found",
+                        "type": "integer",
+                        "example": 2
+                    },
+                    "missing": {
+                        "description": "Number of products not found",
+                        "type": "integer",
+                        "example": 0
+                    },
+                    "missing_ids": {
+                        "description": "Array of external IDs that were not found",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": []
+                    }
+                },
+                "type": "object"
+            },
+            "ProductSubmissionRequest": {
+                "title": "Product Submission Request",
+                "description": "Request payload for submitting products for FODMAP classification",
+                "required": [
+                    "products"
+                ],
+                "properties": {
+                    "products": {
+                        "description": "Array of products to classify",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ProductInput"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "ProductInput": {
+                "title": "Product Input",
+                "description": "Individual product data for classification",
+                "required": [
+                    "externalId",
+                    "name"
+                ],
+                "properties": {
+                    "externalId": {
+                        "description": "Unique external identifier for the product",
+                        "type": "string",
+                        "example": "glovo-123"
+                    },
+                    "name": {
+                        "description": "Product name",
+                        "type": "string",
+                        "example": "Banana"
+                    },
+                    "category": {
+                        "description": "Product category (optional)",
+                        "type": "string",
+                        "example": "Fruit"
+                    }
+                },
+                "type": "object"
+            },
+            "ProductStatusRequest": {
+                "title": "Product Status Request",
+                "description": "Request payload for checking product classification status",
+                "required": [
+                    "external_ids"
+                ],
+                "properties": {
+                    "external_ids": {
+                        "description": "Array of external IDs to check status for",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": [
+                            "glovo-123",
+                            "glovo-456"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "SubmissionResponse": {
+                "title": "Submission Response",
+                "description": "Response after submitting products for classification",
+                "properties": {
+                    "submitted": {
+                        "description": "Number of products successfully submitted",
+                        "type": "integer",
+                        "example": 3
+                    },
+                    "message": {
+                        "description": "Status message",
+                        "type": "string",
+                        "example": "Products queued for classification. Use the status endpoint to check progress."
+                    }
+                },
+                "type": "object"
+            },
+            "ValidationErrorResponse": {
+                "title": "Validation Error Response",
+                "description": "Error response for validation failures",
+                "properties": {
+                    "message": {
+                        "description": "Error message",
+                        "type": "string",
+                        "example": "The given data was invalid."
+                    },
+                    "errors": {
+                        "description": "Detailed validation errors",
+                        "type": "object",
+                        "example": {
+                            "products": [
+                                "The products field is required."
+                            ]
+                        }
+                    }
+                },
+                "type": "object"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Products",
+            "description": "Operations for food product FODMAP classification"
+        },
+        {
+            "name": "System",
+            "description": "System"
+        },
+        {
+            "name": "Documentation",
+            "description": "Documentation"
+        }
+    ]
+}

@@ -39,8 +39,10 @@ function generate_api_docs() {
         exit 1
     fi
 
-    # Check if openapi.yml has been modified and exit if it's not
-    git diff --name-only | grep -q openapi.yml || exit 0
+    # Check if openapi.yml or openapi.json has been modified and exit if neither has
+    if ! git diff --name-only | grep -q "openapi\.\(yml\|json\)"; then
+        exit 0
+    fi
 
     # Generate the HTML API documentation
     bash "$runner" pnpm generate:api-doc:html

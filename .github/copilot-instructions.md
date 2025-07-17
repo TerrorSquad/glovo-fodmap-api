@@ -93,7 +93,7 @@ ddev php -l app/Services/SomeService.php
 ### Git Workflow
 - Pre-commit hooks run automatically
 - All code must pass PHPStan, ECS, and Rector checks
-- Use conventional commit messages
+- Use conventional commit messages (short and concise, one-line format)
 - Test changes before committing
 
 ### Environment Configuration

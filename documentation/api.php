@@ -21,11 +21,22 @@ if ($openapi === null) {
     exit('Failed to generate OpenAPI documentation.');
 }
 
-$filename = 'documentation/openapi.yml';
-$content  = $openapi->toYaml();
+// Generate YAML version
+$yamlFilename = 'documentation/openapi.yml';
+$yamlContent  = $openapi->toYaml();
 
-if (file_put_contents($filename, $content) === false) {
-    exit('Unable to write to file ' . $filename);
+if (file_put_contents($yamlFilename, $yamlContent) === false) {
+    exit('Unable to write to file ' . $yamlFilename);
 }
 
-echo 'OpenAPI documentation generated successfully at ' . $filename . PHP_EOL;
+// Generate JSON version
+$jsonFilename = 'documentation/openapi.json';
+$jsonContent  = $openapi->toJson();
+
+if (file_put_contents($jsonFilename, $jsonContent) === false) {
+    exit('Unable to write to file ' . $jsonFilename);
+}
+
+echo 'OpenAPI documentation generated successfully:' . PHP_EOL;
+echo '- YAML: ' . $yamlFilename . PHP_EOL;
+echo '- JSON: ' . $jsonFilename . PHP_EOL;
