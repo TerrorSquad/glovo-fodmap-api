@@ -6,12 +6,14 @@ use OpenApi\Generator;
 
 require __DIR__ . '/../vendor/autoload.php';
 
-// Change this to the paths of your API classes
-$scanPaths = glob('./src');
-
-if (! is_array($scanPaths)) {
-    exit('No paths found to scan for OpenAPI documentation.');
-}
+// Scan Laravel app directory for API classes
+$scanPaths = [
+    __DIR__ . '/../app/Http/Controllers/Api',
+    __DIR__ . '/../app/Http/Requests/Api',
+    __DIR__ . '/../app/Http/Resources/Api',
+    __DIR__ . '/../app/Http/Schemas/Api',
+    __DIR__ . '/../app/Models',
+];
 
 $openapi = Generator::scan($scanPaths);
 

@@ -7,16 +7,56 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\ClassifyProductsRequest;
 use App\Http\Requests\Api\V1\GetProductStatusRequest;
-use App\Http\Resources\Api\V1\ProductResource;
+use App\Http\Resources\Api\V1\ProductStatusResource;
 use App\Jobs\ClassifyProductsJob;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
+use OpenApi\Attributes as OA;
 
+#[OA\Info(
+    version: '1.0.0',
+    title: 'Glovo FODMAP API',
+    description: 'API for classifying food products as LOW, MODERATE, or HIGH FODMAP using Google Gemini AI'
+)]
+#[OA\Server(
+    url: 'https://glovo-fodmap-api.fly.dev/api',
+    description: 'Production server'
+)]
+#[OA\Server(
+    url: 'http://localhost:8000/api',
+    description: 'Development server'
+)]
+#[OA\Tag(
+    name: 'Products',
+    description: 'Operations for food product FODMAP classification'
+)]
 class ProductController extends Controller
 {
     /**
      * Submit new products for background classification.
      */
+    #[OA\Post(
+        path: '/v1/products/submit',
+        summary: 'Submit products for FODMAP classification',
+        description: 'Submit one or more products to be classified as LOW, MODERATE, or HIGH FODMAP in the background. Products are processed asynchronously using AI classification.',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(ref: '#/components/schemas/ProductSubmissionRequest')
+        ),
+        tags: ['Products'],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Products successfully submitted for classification',
+                content: new OA\JsonContent(ref: '#/components/schemas/SubmissionResponse')
+            ),
+            new OA\Response(
+                response: 422,
+                description: 'Validation error',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
+            ),
+        ]
+    )]
     public function submit(ClassifyProductsRequest $request): JsonResponse
     {
         $incomingProducts = collect($request->validated()['products']);
@@ -67,6 +107,28 @@ class ProductController extends Controller
     /**
      * Get current classification status for products by external IDs.
      */
+    #[OA\Post(
+        path: '/v1/products/status',
+        summary: 'Get product classification status',
+        description: 'Check the current FODMAP classification status for products by their external IDs. Returns detailed information about found products and lists any missing IDs.',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(ref: '#/components/schemas/ProductStatusRequest')
+        ),
+        tags: ['Products'],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Product status information',
+                content: new OA\JsonContent(ref: '#/components/schemas/ProductStatusResponse')
+            ),
+            new OA\Response(
+                response: 422,
+                description: 'Validation error',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
+            ),
+        ]
+    )]
     public function status(GetProductStatusRequest $request): JsonResponse
     {
         $externalIds = $request->validated()['external_ids'];
@@ -77,11 +139,13 @@ class ProductController extends Controller
         $foundIds   = $products->pluck('external_id')->toArray();
         $missingIds = array_diff($externalIds, $foundIds);
 
-        return response()->json([
-            'results'     => ProductResource::collection($products),
+        $statusData = [
+            'results'     => $products,
             'found'       => $products->count(),
             'missing'     => count($missingIds),
             'missing_ids' => $missingIds,
-        ]);
+        ];
+
+        return response()->json(new ProductStatusResource($statusData));
     }
 }

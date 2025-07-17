@@ -7,6 +7,7 @@ namespace App\Http\Resources\Api\V1;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Carbon;
+use OpenApi\Attributes as OA;
 
 /**
  * @property int    $id
@@ -17,6 +18,26 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
+#[OA\Schema(
+    schema: 'ProductResource',
+    title: 'Product Resource',
+    description: 'Product resource response with FODMAP classification status',
+    properties: [
+        new OA\Property(property: 'id', description: 'Internal database ID', type: 'integer', example: 123),
+        new OA\Property(property: 'externalId', description: 'External system identifier', type: 'string', example: 'glovo-123'),
+        new OA\Property(property: 'name', description: 'Product name', type: 'string', example: 'Banana'),
+        new OA\Property(property: 'category', description: 'Product category', type: 'string', example: 'Fruit'),
+        new OA\Property(
+            property: 'status',
+            description: 'FODMAP classification status: PENDING (not yet processed), LOW (safe for IBS), MODERATE (limited portions), HIGH (avoid), UNKNOWN (classification failed)',
+            type: 'string',
+            enum: ['PENDING', 'LOW', 'MODERATE', 'HIGH', 'UNKNOWN'],
+            example: 'LOW'
+        ),
+        new OA\Property(property: 'createdAt', description: 'When the product was first submitted', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'updatedAt', description: 'When the product was last updated', type: 'string', format: 'date-time'),
+    ]
+)]
 class ProductResource extends JsonResource
 {
     /**
