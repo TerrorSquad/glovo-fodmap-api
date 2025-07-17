@@ -13,14 +13,6 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
-    services:
-      sqlite:
-        image: nouchka/sqlite3
-        options: >-
-          --health-cmd "sqlite3 --version"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 3
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
