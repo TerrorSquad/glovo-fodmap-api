@@ -19,6 +19,16 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
 
     public function classify(Product $product): string
     {
+        // Check if API key is available
+        $apiKey = config('gemini.api_key');
+        if (empty($apiKey)) {
+            Log::warning('Gemini API key not configured', [
+                'product_name' => $product->name,
+            ]);
+
+            return 'UNKNOWN';
+        }
+
         // Check rate limit before making API call
         if (! $this->canMakeApiCall()) {
             Log::warning('Gemini API rate limit reached, waiting before retry', [
@@ -35,7 +45,7 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
 
             $prompt = $this->buildPrompt($product);
 
-            $geminiClient = \Gemini::client(config('gemini.api_key'));
+            $geminiClient = \Gemini::client($apiKey);
 
             $result = $geminiClient->generativeModel('models/gemini-2.5-flash-lite-preview-06-17')->generateContent($prompt);
 
