@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
+use App\Jobs\ClassifyProductsJob;
 use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 /**
@@ -20,7 +22,8 @@ class ProductControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        // No special setup needed for testing without authentication
+        // Fake the queue to prevent jobs from executing during tests
+        Queue::fake();
     }
 
     public function testSubmitProductsWithValidData(): void
@@ -51,6 +54,9 @@ class ProductControllerTest extends TestCase
             'external_id' => 'test-product-1',
             'name'        => 'Banana',
         ]);
+
+        // Assert that the classification job was dispatched
+        Queue::assertPushed(ClassifyProductsJob::class);
     }
 
     public function testGetProductStatus(): void

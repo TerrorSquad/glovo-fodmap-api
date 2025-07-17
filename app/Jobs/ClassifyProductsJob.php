@@ -7,6 +7,7 @@ namespace App\Jobs;
 use App\Models\Product;
 use App\Services\FodmapClassifierInterface;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -19,44 +20,38 @@ class ClassifyProductsJob implements ShouldQueue
 
     private const MIN_JOB_INTERVAL = 2; // seconds between jobs
 
-    /**
-     * @param array<array{external_id: string, name: string, category: string}> $productsData
-     */
-    public function __construct(
-        public readonly array $productsData
-    ) {}
+    private const BATCH_SIZE = 50; // Process up to 50 products per job
+
+    public function __construct()
+    {
+        // Job no longer needs specific product data
+    }
 
     public function handle(FodmapClassifierInterface $classifier): void
     {
-        if ($this->productsData === []) {
-            return;
-        }
-
         // Respect rate limits by adding delay between jobs if needed
         $this->respectRateLimits();
 
+        // Find unclassified products from the database
+        $products = $this->getUnclassifiedProducts();
+
+        if ($products->isEmpty()) {
+            Log::info('No unclassified products found for processing');
+
+            return;
+        }
+
         Log::info('Starting background classification', [
-            'product_count' => count($this->productsData),
+            'product_count' => $products->count(),
         ]);
 
         try {
-            // Fetch actual Product models from database for classification
-            $externalIds = array_column($this->productsData, 'external_id');
-            $products    = Product::whereIn('external_id', $externalIds)->get();
-
-            if ($products->isEmpty()) {
-                Log::warning('No products found for classification', [
-                    'external_ids' => $externalIds,
-                ]);
-
-                return;
-            }
-
             // Use batch classification for performance
             $classificationResults = $classifier->classifyBatch($products->all());
 
             // Update products with classification results
             foreach ($products as $index => $product) {
+                /** @var Product $product */
                 $originalStatus = $product->status;
                 $newStatus      = $classificationResults[$index] ?? 'UNKNOWN';
 
@@ -79,28 +74,29 @@ class ClassifyProductsJob implements ShouldQueue
 
             // Mark job completion for rate limiting
             $this->markJobCompleted();
+
+            // Dispatch another job if there might be more products to process
+            $this->dispatchNextJobIfNeeded();
         } catch (\Exception $exception) {
             Log::error('Background classification failed', [
-                'product_count' => count($this->productsData),
+                'product_count' => $products->count(),
                 'error'         => $exception->getMessage(),
                 'trace'         => $exception->getTraceAsString(),
             ]);
 
             // Update products with UNKNOWN status as fallback
-            $externalIds = array_column($this->productsData, 'external_id');
-            Product::whereIn('external_id', $externalIds)->update([
-                'status'       => 'UNKNOWN',
-                'processed_at' => now(),
-                'updated_at'   => now(),
-            ]);
+            $products->each(function (Product $product): void {
+                $product->update([
+                    'status'       => 'UNKNOWN',
+                    'processed_at' => now(),
+                ]);
+            });
 
             // Mark job completion even on failure for rate limiting
             $this->markJobCompleted();
 
             throw $exception; // Re-throw for queue retry mechanism
         }
-
-        $this->markJobCompleted();
     }
 
     /**
@@ -160,5 +156,40 @@ class ClassifyProductsJob implements ShouldQueue
     private function markJobCompleted(): void
     {
         Cache::put(self::LAST_JOB_KEY, now(), 300); // Cache for 5 minutes
+    }
+
+    /**
+     * Get the next batch of unclassified products from the database.
+     *
+     * @return Collection<int, Product>
+     */
+    private function getUnclassifiedProducts(): Collection
+    {
+        return Product::where('status', 'PENDING')
+            ->whereNull('processed_at')
+            ->orderBy('created_at', 'asc') // Process older products first
+            ->limit(self::BATCH_SIZE)
+            ->get()
+        ;
+    }
+
+    /**
+     * Dispatch another job if there are more unclassified products to process.
+     */
+    private function dispatchNextJobIfNeeded(): void
+    {
+        $remainingCount = Product::where('status', 'PENDING')
+            ->whereNull('processed_at')
+            ->count()
+        ;
+
+        if ($remainingCount > 0) {
+            Log::info('Dispatching next classification job', [
+                'remaining_products' => $remainingCount,
+            ]);
+
+            // Dispatch next job with a small delay to respect rate limits
+            self::dispatch()->delay(now()->addSeconds(self::MIN_JOB_INTERVAL));
+        }
     }
 }

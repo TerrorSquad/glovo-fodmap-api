@@ -73,16 +73,6 @@ class ProductController extends Controller
             ]);
         }
 
-        // Prepare job data for background classification
-        $jobData = $newProductsData->map(fn ($data): array => [
-            'external_id' => $data['externalId'],
-            'name'        => $data['name'],
-            'category'    => $data['category'] ?? 'Uncategorized',
-        ])->toArray();
-
-        // Dispatch background classification job
-        ClassifyProductsJob::dispatch($jobData);
-
         // Create placeholder records immediately for better UX
         $placeholderProducts = [];
         foreach ($newProductsData as $data) {
@@ -97,6 +87,9 @@ class ProductController extends Controller
         }
 
         Product::insert($placeholderProducts);
+
+        // Dispatch background classification job (will process all unclassified products)
+        ClassifyProductsJob::dispatch();
 
         return response()->json([
             'submitted' => $newProductsData->count(),
