@@ -1,0 +1,12 @@
+{
+  "sonarlint.connectedMode.project": {
+    "connectionId": "myConnectionId",
+    "projectKey": "myProjectKey"
+  },
+  "php.version": "8.3.21",
+  "php.executablePath": "./php",
+  "Laravel.phpCommand": "./php -r \"{code}\"",
+  "LaravelExtraIntellisense.phpCommand": "./php",
+  "Devdb.phpExecutablePath": "./php -r \"{code}\"",
+  "php.validate.executablePath": "./php",
+}

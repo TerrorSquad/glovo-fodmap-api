@@ -24,7 +24,23 @@ for arg in "$@"; do
     inline_code="${arg#-r}"
     r_code="${inline_code//$ROOT_DIR/\/var\/www\/html}"
   elif [[ "$has_r_flag" == true && "$r_code" == "" ]]; then
-    r_code="${arg//$ROOT_DIR/\/var\/www\/html}"
+    # Check if this looks like a file path instead of inline code
+    if [[ "$arg" == *.php ]]; then
+      # This is actually a file path, not inline code
+      # Convert the Laravel extension's incorrect usage of -r with filepath
+      has_r_flag=false
+      converted_args=("${converted_args[@]%-r}")  # Remove the -r flag
+      if [[ "$arg" == "$ROOT_DIR"* ]]; then
+        container_path="/var/www/html${arg#$ROOT_DIR}"
+        converted_args+=("$container_path")
+      else
+        converted_arg="${arg//$ROOT_DIR/\/var\/www\/html}"
+        converted_args+=("$converted_arg")
+      fi
+    else
+      # This is actual inline code
+      r_code="${arg//$ROOT_DIR/\/var\/www\/html}"
+    fi
   elif [[ "$arg" == "$ROOT_DIR"* ]]; then
     container_path="/var/www/html${arg#$ROOT_DIR}"
     converted_args+=("$container_path")
