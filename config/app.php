@@ -134,6 +134,4 @@ return [
     | rule-based classifier will be used.
     |
     */
-
-    'use_gemini_classifier' => env('USE_GEMINI_CLASSIFIER', false),
 ];
