@@ -158,6 +158,11 @@ components:
           description: 'When the product was last updated'
           type: string
           format: date-time
+        processedAt:
+          description: 'When the product was classified (null if still pending)'
+          type: string
+          format: date-time
+          nullable: true
       type: object
     ProductStatusResponse:
       title: 'Product Status Response'
