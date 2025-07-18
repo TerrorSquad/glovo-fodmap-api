@@ -71,8 +71,22 @@ class ClassifyProductsJobTest extends TestCase
             ->with($this->callback(fn ($products): bool => count($products) === 2
                 && collect($products)->pluck('id')->contains($product1->id)
                 && collect($products)->pluck('id')->contains($product2->id)))
-            ->willReturn(['LOW', 'HIGH'])
+            ->willReturn([
+                $product1->external_id => [
+                    'status'      => 'LOW',
+                    'is_food'     => true,
+                    'explanation' => 'Low FODMAP',
+                ],
+                $product2->external_id => [
+                    'status'      => 'HIGH',
+                    'is_food'     => true,
+                    'explanation' => 'High FODMAP',
+                ],
+            ])
         ;
+
+        // Bind mock in container
+        $this->app->instance(FodmapClassifierInterface::class, $mockClassifier);
 
         $job = new ClassifyProductsJob();
         $job->handle($mockClassifier);
@@ -101,14 +115,28 @@ class ClassifyProductsJobTest extends TestCase
             ->with($this->callback(fn ($products): bool
                 // Should only process up to batch size (50)
                 => count($products) === 50))
-            ->willReturn(array_fill(0, 50, 'LOW'))
+            ->willReturnCallback(function ($products): array {
+                $results = [];
+                foreach ($products as $product) {
+                    $results[$product->external_id] = [
+                        'status'      => 'LOW',
+                        'is_food'     => true,
+                        'explanation' => 'Low FODMAP test result',
+                    ];
+                }
+
+                return $results;
+            })
         ;
+
+        // Bind mock in container
+        $this->app->instance(FodmapClassifierInterface::class, $mockClassifier);
 
         $job = new ClassifyProductsJob();
         $job->handle($mockClassifier);
 
-        // Should dispatch another job since there are more unclassified products
-        Queue::assertPushed(ClassifyProductsJob::class);
+        // Job no longer dispatches itself - scheduled command handles that
+        Queue::assertNothingPushed();
     }
 
     public function testJobProcessesOldestProductsFirst(): void

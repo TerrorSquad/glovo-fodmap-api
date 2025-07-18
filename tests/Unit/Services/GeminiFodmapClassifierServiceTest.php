@@ -47,7 +47,7 @@ class GeminiFodmapClassifierServiceTest extends TestCase
 
         $result = $this->service->classify($product);
 
-        $this->assertEquals('UNKNOWN', $result);
+        $this->assertEquals('UNKNOWN', $result['status']);
     }
 
     public function testClassifyHandlesApiErrorsGracefully(): void
@@ -69,7 +69,7 @@ class GeminiFodmapClassifierServiceTest extends TestCase
 
         $result = $this->service->classify($product);
 
-        $this->assertEquals('UNKNOWN', $result);
+        $this->assertEquals('UNKNOWN', $result['status']);
     }
 
     public function testClassifyBatchRespectsRateLimits(): void

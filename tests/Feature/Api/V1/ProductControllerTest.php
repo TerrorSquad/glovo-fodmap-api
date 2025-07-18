@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
-use App\Jobs\ClassifyProductsJob;
 use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -55,8 +54,8 @@ class ProductControllerTest extends TestCase
             'name'        => 'Banana',
         ]);
 
-        // Assert that the classification job was dispatched
-        Queue::assertPushed(ClassifyProductsJob::class);
+        // Products are now processed by scheduled command, not immediate dispatch
+        Queue::assertNothingPushed();
     }
 
     public function testGetProductStatus(): void
