@@ -220,6 +220,12 @@
                         "type": "string",
                         "example": "Fruit"
                     },
+                    "isFood": {
+                        "description": "Whether this product is food (true) or non-food item (false). Null if not yet classified.",
+                        "type": "boolean",
+                        "example": true,
+                        "nullable": true
+                    },
                     "status": {
                         "description": "FODMAP classification status: PENDING (not yet processed), LOW (safe for IBS), MODERATE (limited portions), HIGH (avoid), UNKNOWN (classification failed)",
                         "type": "string",
@@ -231,6 +237,12 @@
                             "UNKNOWN"
                         ],
                         "example": "LOW"
+                    },
+                    "explanation": {
+                        "description": "Explanation of why the product has this FODMAP classification (e.g., \"Contains fructose from natural fruit sugars\")",
+                        "type": "string",
+                        "example": "Low FODMAP fruit, safe in normal portions",
+                        "nullable": true
                     },
                     "createdAt": {
                         "description": "When the product was first submitted",
