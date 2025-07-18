@@ -2,10 +2,19 @@
   "$schema": "https://getcomposer.org/schema.json",
   "name": "laravel/laravel",
   "type": "project",
-  "description": "The skeleton application for the Laravel framework.",
+  "description": "AI-powered FODMAP classification API using Google Gemini with Serbian language support and batch processing optimization.",
   "keywords": [
     "laravel",
-    "framework"
+    "framework",
+    "fodmap",
+    "api",
+    "gemini",
+    "ai",
+    "classification",
+    "serbian",
+    "batch-processing",
+    "ibs",
+    "digestive-health"
   ],
   "license": "MIT",
   "require": {
