@@ -1,15 +1,17 @@
 # Glovo FODMAP API
 
-A Laravel-based REST API that classifies food products based on their FODMAP content. This API helps users with digestive sensitivities (IBS, SIBO) identify whether food products are high or low in FODMAPs.
+A Laravel-based REST API that classifies food products based on their FODMAP content using Google Gemini AI. This API helps users with digestive sensitivities (IBS, SIBO) identify whether food products are high or low in FODMAPs.
 
 ## 🚀 Features
 
-- **AI-Powered Classification**: Uses Google Gemini AI for intelligent FODMAP classification
-- **Dual Classification System**: Choose between AI-powered or rule-based classification
-- **Product Classification**: Automatically classifies products as HIGH, LOW, or UNKNOWN FODMAP content
-- **Batch Processing**: Handle multiple products in a single API request
+- **AI-Powered Classification**: Uses Google Gemini 2.5 Flash Lite for intelligent FODMAP classification
+- **Serbian Language Support**: Provides explanations in Serbian for better user experience
+- **Enhanced Classification**: Determines if products are food items and provides detailed explanations
+- **Batch Processing**: Efficiently handles multiple products with optimized API usage (10x improvement)
+- **Mixed Ingredient Handling**: Improved logic for products with both high and low FODMAP ingredients
 - **Smart Caching**: Avoids re-processing already classified products
-- **RESTful API**: Clean and simple JSON API interface
+- **RESTful API**: Clean JSON API with rich product information
+- **Console Commands**: Comprehensive CLI tools for classification and monitoring
 - **OpenAPI Documentation**: Auto-generated API documentation
 - **Multi-Environment Support**: Works with DDEV, Docker, or local development
 
@@ -87,7 +89,7 @@ This project includes a smart runner script that automatically detects your envi
 
 ## 🤖 AI Classification Setup
 
-This project supports both rule-based and AI-powered classification using Google Gemini.
+This project uses Google Gemini 2.5 Flash Lite for advanced FODMAP classification with Serbian explanations.
 
 ### Enable Gemini AI Classification
 
@@ -96,16 +98,16 @@ This project supports both rule-based and AI-powered classification using Google
 2. **Add to your `.env` file**:
    ```env
    GEMINI_API_KEY=your_api_key_here
-   USE_GEMINI_CLASSIFIER=true
+   GEMINI_MODEL=gemini-2.0-flash-exp  # Default model
    ```
-
-3. **Switch between classifiers**:
-   - `USE_GEMINI_CLASSIFIER=true` - Uses AI-powered Gemini classification
-   - `USE_GEMINI_CLASSIFIER=false` - Uses rule-based classification (default)
 
 ### Benefits of AI Classification
 
 - **Intelligent Analysis**: Leverages Gemini's knowledge of food and FODMAP content
+- **Serbian Explanations**: Provides detailed explanations in Serbian language
+- **Food Detection**: Automatically determines if product is food or non-food
+- **Mixed Ingredient Logic**: Handles products with conflicting FODMAP ingredients
+- **Batch Optimization**: Processes multiple products in single API calls (10x efficiency)
 - **Better Accuracy**: Handles complex and uncommon food products
 - **Contextual Understanding**: Considers product names and categories together
 - **Fallback Safety**: Falls back to "unknown" classification if API fails
@@ -143,46 +145,125 @@ This project supports both rule-based and AI-powered classification using Google
       "name": "Whole Wheat Bread",
       "category": "Bakery",
       "status": "HIGH",
+      "is_food": true,
+      "explanation": "Hleb od integralnog brašna sadrži gluten i fruktan iz pšenice, što ga čini visoko FODMAP namirnicom.",
       "created_at": "2025-07-14T10:00:00Z",
-      "updated_at": "2025-07-14T10:00:00Z"
+      "updated_at": "2025-07-14T10:00:00Z",
+      "processed_at": "2025-07-14T10:00:00Z"
     },
     {
       "external_id": "67890",
       "name": "Rice Cakes",
       "category": "Snacks",
       "status": "LOW",
+      "is_food": true,
+      "explanation": "Pirinčane galette su napravljene od pirinča koji je nisko FODMAP namirnica i siguran za potrošnju.",
       "created_at": "2025-07-14T10:00:00Z",
-      "updated_at": "2025-07-14T10:00:00Z"
+      "updated_at": "2025-07-14T10:00:00Z",
+      "processed_at": "2025-07-14T10:00:00Z"
     }
   ]
 }
-```
-
 ### FODMAP Status Values
 
 - **`HIGH`**: Contains high FODMAP ingredients
-- **`LOW`**: Contains only low FODMAP ingredients
+- **`LOW`**: Contains only low FODMAP ingredients  
+- **`MODERATE`**: Contains moderate levels of FODMAP ingredients
 - **`NA`**: Non-food products (cosmetics, cleaning products, etc.)
-- **`UNKNOWN`**: Cannot be classified (insufficient data)
+- **`UNKNOWN`**: Cannot be classified (insufficient data or mixed ingredients)
+- **`PENDING`**: Awaiting classification
+
+### Response Fields
+
+- **`status`**: FODMAP classification status
+- **`is_food`**: Boolean indicating if product is food (true/false/null)
+- **`explanation`**: Detailed explanation in Serbian language
+- **`processed_at`**: Timestamp when product was classified
+
+## 🖥️ Console Commands
+
+The API includes powerful console commands for classification and monitoring:
+
+### Classify Products
+
+```bash
+# Classify specific products
+php artisan fodmap:classify --external-ids=12345,67890
+
+# Classify all unclassified products
+php artisan fodmap:classify --all
+
+# Re-classify all products (force reprocessing)
+php artisan fodmap:classify --all --force --reprocess
+
+# Use batch processing with custom batch size
+php artisan fodmap:classify --all --batch-size=50
+
+# Disable batch processing (slower but more reliable)
+php artisan fodmap:classify --all --no-batch
+```
+
+### View Product Status
+
+```bash
+# Show recent products in table format
+php artisan fodmap:status --limit=10
+
+# Show specific products with detailed explanations
+php artisan fodmap:status --external-ids=12345,67890 --with-explanation
+
+# Filter by status
+php artisan fodmap:status --status=HIGH --limit=5
+
+# Show classification statistics
+php artisan fodmap:status --stats
+```
+
+### Command Options
+
+**Classify Options:**
+- `--external-ids`: Specific products to classify (comma-separated)
+- `--all`: Process all products in database
+- `--force`: Re-classify products with existing status
+- `--reprocess`: Include already processed products
+- `--batch-size`: Products per batch (default: 10, max: 100)
+- `--no-batch`: Disable batch processing
+
+**Status Options:**
+- `--external-ids`: Show specific products (comma-separated)
+- `--status`: Filter by status (HIGH/LOW/MODERATE/UNKNOWN/PENDING/NA)
+- `--limit`: Number of products to show (default: 10)
+- `--with-explanation`: Show detailed view with explanations
+- `--stats`: Show classification statistics
 
 ## 🏗️ Architecture
 
 ### Key Components
 
 - **`ProductController`**: Main API endpoint for product classification
-- **`FodmapClassifierService`**: Core logic for FODMAP classification
-- **`Product`**: Eloquent model for storing product data
-- **`ProductResource`**: API resource for consistent JSON responses
+- **`GeminiFodmapClassifierService`**: AI-powered classification using Google Gemini
+- **`ClassifyProductsJob`**: Background job for processing product batches
+- **`Product`**: Eloquent model with enhanced fields (is_food, explanation, processed_at)
+- **`ProductResource`**: API resource for consistent JSON responses with all fields
+- **Console Commands**: `ClassifyProducts` and `ShowProductStatus` for CLI management
 
-### Classification Logic
+### Enhanced Classification Logic
 
-The classifier uses configurable word lists to identify FODMAP content:
+The AI classifier provides:
 
-1. **High FODMAP ingredients**: Wheat, onions, garlic, apples, etc.
-2. **Low FODMAP ingredients**: Rice, carrots, spinach, etc.
-3. **Ignore list**: Brand names, measurements, common words
+1. **Serbian Language Explanations**: Detailed reasoning in Serbian
+2. **Food Detection**: Automatically identifies food vs non-food products
+3. **Mixed Ingredient Handling**: Smart logic for products with conflicting FODMAP levels
+4. **Batch Processing**: Optimized API calls for efficiency
+5. **Structured Responses**: Consistent JSON format with all required fields
 
-Configuration files are located in `config/fodmap.php`.
+### Database Schema
+
+Enhanced `products` table includes:
+- `status`: FODMAP classification (HIGH/LOW/MODERATE/UNKNOWN/NA/PENDING)
+- `is_food`: Boolean field indicating if product is food (nullable)
+- `explanation`: Detailed explanation in Serbian (nullable text)
+- `processed_at`: Timestamp of classification (nullable)
 
 ## 🧪 Testing
 
@@ -260,15 +341,15 @@ Key environment variables:
 - `APP_ENV`: Application environment (local, staging, production)
 - `DB_CONNECTION`: Database driver (sqlite, mysql, pgsql)
 - `DB_DATABASE`: Database name or path
+- `GEMINI_API_KEY`: Google Gemini API key for AI classification
+- `GEMINI_MODEL`: Gemini model to use (default: gemini-2.0-flash-exp)
 - `LOG_LEVEL`: Logging level (debug, info, warning, error)
 
-### FODMAP Configuration
+### Configuration Files
 
-Customize FODMAP ingredients in `config/fodmap.php`:
-
-- `fodmap.high`: High FODMAP ingredients
-- `fodmap.low`: Low FODMAP ingredients
-- `fodmap.ignore`: Words to ignore during classification
+- `config/gemini.php`: Gemini AI service configuration
+- `config/fodmap.php`: Legacy FODMAP word lists (deprecated)
+- `config/app.php`: Core Laravel application settings
 
 ## 🤝 Contributing
 
