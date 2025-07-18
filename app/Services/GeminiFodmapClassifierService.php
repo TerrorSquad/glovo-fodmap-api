@@ -17,7 +17,7 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
     // Conservative rate limiting for stability
     private const RATE_LIMIT_WINDOW = 60; // seconds
 
-    public function classify(Product $product): string
+    public function classify(Product $product): array
     {
         // Check if API key is available
         $apiKey = config('gemini.api_key');
@@ -26,7 +26,11 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
                 'product_name' => $product->name,
             ]);
 
-            return 'UNKNOWN';
+            return [
+                'status'      => 'UNKNOWN',
+                'is_food'     => null,
+                'explanation' => 'API key not configured',
+            ];
         }
 
         // Check rate limit before making API call
@@ -51,16 +55,19 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
 
             $classification = trim($result->text());
 
+            // Parse the structured response
+            $parsedResult = $this->parseClassificationResponse($classification);
+
             // Debug logging for Serbian products
             Log::info('Gemini classification debug', [
                 'product_name'   => $product->name,
                 'category'       => $product->category,
                 'raw_response'   => $classification,
-                'normalized'     => $this->normalizeClassification($classification),
+                'parsed_result'  => $parsedResult,
                 'api_calls_used' => $this->getCurrentCallCount(),
             ]);
 
-            return $this->normalizeClassification($classification);
+            return $parsedResult;
         } catch (\Exception $exception) {
             Log::error('Gemini classification failed', [
                 'product_name' => $product->name,
@@ -68,7 +75,11 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
             ]);
 
             // Fallback to safe classification
-            return 'UNKNOWN';
+            return [
+                'status'      => 'UNKNOWN',
+                'is_food'     => null,
+                'explanation' => 'Classification failed: ' . $exception->getMessage(),
+            ];
         }
     }
 
@@ -80,7 +91,11 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
 
         // For single product, use individual classification
         if (count($products) === 1) {
-            return [$this->classify($products[0])];
+            $result = $this->classify($products[0]);
+
+            return [
+                $products[0]->external_id => $result,
+            ];
         }
 
         // For queue jobs, guarantee batch processing - wait for rate limit
@@ -97,13 +112,15 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
 
             $response = trim($result->text());
 
-            Log::info('Gemini batch classification debug', [
-                'product_count'  => count($products),
-                'api_calls_used' => $this->getCurrentCallCount(),
-                'raw_response'   => substr($response, 0, 200) . '...', // Log first 200 chars
+            $results = $this->parseBatchResponse($response, $products);
+
+            Log::info('Gemini batch classification completed', [
+                'product_count'    => count($products),
+                'api_calls_used'   => $this->getCurrentCallCount(),
+                'classified_count' => count($results),
             ]);
 
-            return $this->parseBatchResponse($response, $products);
+            return $results;
         } catch (\Exception $exception) {
             Log::error('Gemini batch classification failed', [
                 'product_count' => count($products),
@@ -112,7 +129,16 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
 
             // For queue jobs, maintain batch processing by returning UNKNOWN for all
             // Individual classification can still fallback to individual calls
-            return array_fill(0, count($products), 'UNKNOWN');
+            $fallbackResults = [];
+            foreach ($products as $product) {
+                $fallbackResults[$product->external_id] = [
+                    'status'      => 'UNKNOWN',
+                    'is_food'     => null,
+                    'explanation' => 'Batch classification failed: ' . $exception->getMessage(),
+                ];
+            }
+
+            return $fallbackResults;
         }
     }
 
@@ -159,11 +185,18 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
             STEP 2: Determine if it's food or non-food
             STEP 3: If food, classify FODMAP level
 
-            Classification Rules:
+            Classification Rules for Mixed Ingredients:
+            - If a product contains BOTH low and high FODMAP ingredients, classify based on the DOMINANT ingredient
+            - For processed foods (pizza, pastries, mixed dishes), classify as HIGH if wheat/gluten is present
+            - For products with small amounts of high FODMAP ingredients (spices, seasonings), classify as MODERATE
+            - Only use UNKNOWN if ingredients are truly unclear or very complex formulations
+
+            FODMAP Classification:
             - LOW: Food products that are generally safe for people with IBS (less than threshold amounts of FODMAPs)
+            - MODERATE: Food products with small amounts of FODMAPs that may be tolerated in limited portions
             - HIGH: Food products that contain significant amounts of FODMAPs (fructans, lactose, fructose, polyols, etc.)
             - NA: Non-food products (cosmetics, cleaning products, toiletries, household items, etc.)
-            - UNKNOWN: Food products where you cannot determine the FODMAP level with confidence
+            - UNKNOWN: Food products where ingredients are truly unclear (avoid this unless absolutely necessary)
 
             Common HIGH FODMAP foods: wheat products, onions, garlic, beans, milk products, apples, pears, stone fruits, etc.
             Common LOW FODMAP foods: rice, potatoes, carrots, spinach, chicken, fish, lactose-free dairy, oranges, strawberries, COCONUT, MEAT PRODUCTS, ALCOHOLIC BEVERAGES, etc.
@@ -172,15 +205,22 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
             - ALL MEAT PRODUCTS (kulen, kobasica, sausages, etc.) = LOW FODMAP
             - ALL ALCOHOLIC BEVERAGES (liker, rakija, vodka, wine, beer, etc.) = LOW FODMAP
             - SIMPLE VEGETABLES AND FRUITS (except high FODMAP ones) = LOW FODMAP
+            - WHEAT-BASED PRODUCTS (bread, pasta, pizza dough) = HIGH FODMAP
+            - DAIRY PRODUCTS (milk, yogurt, soft cheese) = HIGH FODMAP
 
             EXAMPLE ANALYSIS:
-            "Kokos komad" = "Coconut piece" = FOOD = Coconut is LOW FODMAP = ANSWER: "low"
-            "Instant kafa" = "Instant coffee" = FOOD = Coffee is LOW FODMAP = ANSWER: "low"
-            "Pšenični hleb" = "Wheat bread" = FOOD = Wheat is HIGH FODMAP = ANSWER: "high"
-            "Kulen slajs" = "Kulen slices" = MEAT PRODUCT = Meat is LOW FODMAP = ANSWER: "low"
-            "Liker od maline" = "Raspberry liqueur" = ALCOHOLIC BEVERAGE = Alcohol is LOW FODMAP = ANSWER: "low"
+            "Kokos komad" = "Coconut piece" = FOOD = Coconut is LOW FODMAP = ANSWER: "LOW"
+            "Pizza sa sirom" = "Cheese pizza" = FOOD = Contains wheat (high) + cheese (high) = ANSWER: "HIGH"
+            "Piletina sa rižom" = "Chicken with rice" = FOOD = Chicken (low) + rice (low) = ANSWER: "LOW"
 
-            Respond with only one word: "low", "high", "na", or "unknown"
+            Return response as JSON with Serbian explanation:
+            {
+                "status": "LOW|MODERATE|HIGH|NA|UNKNOWN",
+                "is_food": true|false,
+                "explanation": "Kratko objašnjenje na srpskom jeziku zašto je proizvod klasifikovan ovako"
+            }
+
+            IMPORTANT: Write explanation in Serbian language. Be decisive - avoid UNKNOWN unless truly necessary.
             PROMPT;
     }
 
@@ -216,68 +256,154 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
             Products to classify:
             {$productList}
 
-            Classification approach:
+            Classification approach for mixed ingredients:
             1. Use the CATEGORY to understand the product type (e.g., "Gluten free" category = likely LOW FODMAP)
             2. Identify main ingredients from the Serbian product name
-            3. Apply FODMAP knowledge to classify
+            3. For products with BOTH low and high FODMAP ingredients, classify based on DOMINANT ingredient
+            4. For wheat-based products (pizza, bread, pastries), classify as HIGH even if other ingredients are low FODMAP
+            5. For products with small amounts of high FODMAP seasonings, classify as MODERATE
 
-            Classification rules:
+            FODMAP Classification Rules:
             - LOW: Safe for IBS (rice, potatoes, meat, fish, eggs, most vegetables, gluten-free products, plain alcohol)
+            - MODERATE: Small amounts of FODMAPs that may be tolerated in limited portions (products with minor high FODMAP seasonings)
             - HIGH: Contains significant FODMAPs (wheat/grain products, milk/dairy, onion, garlic, beans/legumes, apples, pears)
             - NA: Non-food items (cosmetics, cleaning products, toiletries, household items)
-            - UNKNOWN: Food but ingredients unclear or complex formulations
+            - UNKNOWN: Food but ingredients truly unclear (AVOID - be decisive based on main ingredients)
 
-            IMPORTANT:
-            - Products in "Mesne Prerađevine" (meat products) category are LOW FODMAP
-            - Products in "Ostala Žestoka Pića" (alcoholic beverages) category are LOW FODMAP
-            - Products in "Gluten free" category are usually LOW FODMAP
-            - Simple meat, fish, vegetable products are usually LOW FODMAP
-            - Plain alcoholic beverages (rakija, vodka, wine, liker) are LOW FODMAP
-            - Be confident - most single-ingredient or simple products can be classified
+            IMPORTANT Classification Guidelines:
+            - Products in "Mesne Prerađevine" (meat products) category = LOW FODMAP
+            - Products in "Ostala Žestoka Pića" (alcoholic beverages) category = LOW FODMAP
+            - Products in "Gluten free" category = usually LOW FODMAP
+            - Simple meat, fish, vegetable products = usually LOW FODMAP
+            - Plain alcoholic beverages (rakija, vodka, wine, liker) = LOW FODMAP
+            - Wheat-based products (pizza, bread, pasta) = HIGH FODMAP regardless of other ingredients
+            - Dairy products (milk, yogurt, soft cheese) = HIGH FODMAP
+            - BE DECISIVE - classify based on dominant ingredient, avoid UNKNOWN
 
-            Respond ONLY in this exact format:
-            1: low
-            2: high
-            3: na
+            Respond with valid JSON array with Serbian explanations:
+            [
+                {
+                    "external_id": "product_external_id_1",
+                    "status": "LOW|MODERATE|HIGH|NA|UNKNOWN",
+                    "is_food": true|false,
+                    "explanation": "Kratko objašnjenje na srpskom jeziku"
+                },
+                {
+                    "external_id": "product_external_id_2",
+                    "status": "LOW|MODERATE|HIGH|NA|UNKNOWN",
+                    "is_food": true|false,
+                    "explanation": "Kratko objašnjenje na srpskom jeziku"
+                }
+            ]
 
-            Be decisive based on category context and main ingredients.
+            IMPORTANT: Write all explanations in Serbian language. Be decisive - avoid UNKNOWN classification.
             PROMPT;
     }
 
     private function parseBatchResponse(string $response, array $products): array
     {
         $results = [];
-        $lines   = array_filter(explode("\n", $response));
 
-        foreach ($lines as $line) {
-            if (preg_match('/^(\d+):\s*(\w+)/', trim($line), $matches)) {
-                $index          = (int) $matches[1] - 1; // Convert to 0-based index
-                $classification = $this->normalizeClassification($matches[2]);
+        try {
+            // Clean the response - remove markdown code blocks if present
+            $cleanResponse = trim($response);
+            $cleanResponse = preg_replace('/^```json\s*/', '', $cleanResponse);
+            $cleanResponse = preg_replace('/\s*```$/', '', (string) $cleanResponse);
+            $cleanResponse = trim((string) $cleanResponse);
 
-                if (isset($products[$index])) {
-                    $results[$index] = $classification;
+            $jsonResponse = json_decode($cleanResponse, true, 512, JSON_THROW_ON_ERROR);
+
+            if (! is_array($jsonResponse)) {
+                throw new \Exception('Response is not an array');
+            }
+
+            foreach ($jsonResponse as $item) {
+                if (isset($item['external_id'], $item['status'])) {
+                    $results[$item['external_id']] = [
+                        'status'      => strtoupper((string) $item['status']),
+                        'is_food'     => $item['is_food']     ?? true,
+                        'explanation' => $item['explanation'] ?? null,
+                    ];
                 }
             }
-        }
 
-        // Fill in any missing results with UNKNOWN
-        $counter = count($products);
+            // Fill missing results with fallback for each product
+            foreach ($products as $product) {
+                if (! isset($results[$product->external_id])) {
+                    $results[$product->external_id] = [
+                        'status'      => 'UNKNOWN',
+                        'is_food'     => true,
+                        'explanation' => 'No classification result received',
+                    ];
+                    Log::warning('Missing classification result for product', [
+                        'external_id'  => $product->external_id,
+                        'product_name' => $product->name,
+                    ]);
+                }
+            }
+        } catch (\Exception $exception) {
+            Log::error('Failed to parse batch classification response', [
+                'error'    => $exception->getMessage(),
+                'response' => substr($response, 0, 500),
+            ]);
 
-        // Fill in any missing results with UNKNOWN
-        for ($i = 0; $i < $counter; ++$i) {
-            if (! isset($results[$i])) {
-                $results[$i] = 'UNKNOWN';
-                Log::warning('Missing classification result for product index ' . $i, [
-                    'product_name' => $products[$i]->name ?? 'Unknown',
-                    'response'     => $response,
-                ]);
+            // Fallback: return UNKNOWN for all products
+            foreach ($products as $product) {
+                $results[$product->external_id] = [
+                    'status'      => 'UNKNOWN',
+                    'is_food'     => true,
+                    'explanation' => 'Failed to parse classification response',
+                ];
             }
         }
 
-        // Ensure results are in the correct order
-        ksort($results);
+        return $results;
+    }
 
-        return array_values($results);
+    /**
+     * Parse single product classification response.
+     */
+    private function parseClassificationResponse(string $response): array
+    {
+        try {
+            // Handle JSON wrapped in markdown code blocks
+            $cleanResponse = trim($response);
+            if (str_contains($cleanResponse, '```json')) {
+                $cleanResponse = preg_replace('/```json\s*/', '', $cleanResponse);
+                $cleanResponse = preg_replace('/\s*```/', '', (string) $cleanResponse);
+                $cleanResponse = trim((string) $cleanResponse);
+            }
+
+            $jsonResponse = json_decode($cleanResponse, true, 512, JSON_THROW_ON_ERROR);
+
+            return [
+                'status'      => strtoupper($jsonResponse['status'] ?? 'UNKNOWN'),
+                'is_food'     => $jsonResponse['is_food']     ?? true,
+                'explanation' => $jsonResponse['explanation'] ?? null,
+            ];
+        } catch (\Exception $exception) {
+            Log::error('Failed to parse classification response', [
+                'error'    => $exception->getMessage(),
+                'response' => substr($response, 0, 200),
+            ]);
+
+            // Fallback to legacy parsing
+            return $this->legacyParseClassification($response);
+        }
+    }
+
+    /**
+     * Legacy parsing for backward compatibility.
+     */
+    private function legacyParseClassification(string $response): array
+    {
+        $status = $this->normalizeClassification($response);
+
+        return [
+            'status'      => $status,
+            'is_food'     => $status !== 'NA',
+            'explanation' => null,
+        ];
     }
 
     private function normalizeClassification(string $classification): string
