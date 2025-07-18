@@ -15,8 +15,7 @@ class ClassifyProducts extends Command
      * The name and signature of the console command.
      */
     protected $signature = 'fodmap:classify
-                            {--external-id= : External ID of a single product to classify}
-                            {--external-ids= : Comma-separated list of external IDs to classify}
+                            {--external-ids= : External IDs to classify (comma-separated for multiple)}
                             {--all : Classify all products in the database}
                             {--force : Re-classify products even if they already have a status}
                             {--reprocess : Re-classify products that have already been processed}
@@ -61,10 +60,6 @@ class ClassifyProducts extends Command
     private function getProductsToClassify(): Collection
     {
         $query = Product::query();
-
-        if ($externalId = $this->option('external-id')) {
-            return $query->where('external_id', $externalId)->get();
-        }
 
         if ($externalIds = $this->option('external-ids')) {
             $ids = array_map('trim', explode(',', $externalIds));
@@ -165,10 +160,16 @@ class ClassifyProducts extends Command
 
                 foreach ($batch->values() as $index => $product) {
                     $originalStatus = $product->status;
-                    $newStatus      = $results[$index] ?? 'UNKNOWN';
+                    $result         = $results[$product->external_id] ?? [
+                        'status'      => 'UNKNOWN',
+                        'is_food'     => null,
+                        'explanation' => 'No classification result received',
+                    ];
 
                     $product->update([
-                        'status'       => $newStatus,
+                        'status'       => $result['status'],
+                        'is_food'      => $result['is_food'],
+                        'explanation'  => $result['explanation'],
                         'processed_at' => now(),
                     ]);
                     ++$classified;
@@ -178,7 +179,9 @@ class ClassifyProducts extends Command
                         $this->line('Product: ' . $product->name);
                         $this->line('External ID: ' . $product->external_id);
                         $this->line('Category: ' . $product->category);
-                        $this->line(sprintf('Status: %s → %s', $originalStatus, $newStatus));
+                        $this->line(sprintf('Status: %s → %s', $originalStatus, $result['status']));
+                        $this->line('Is Food: ' . ($result['is_food'] === null ? 'null' : ($result['is_food'] ? 'true' : 'false')));
+                        $this->line('Explanation: ' . ($result['explanation'] ?? 'null'));
                         $this->line('---');
                     }
 
@@ -230,10 +233,12 @@ class ClassifyProducts extends Command
                 }
 
                 $originalStatus = $product->status;
-                $newStatus      = $classifier->classify($product);
+                $result         = $classifier->classify($product);
 
                 $product->update([
-                    'status'       => $newStatus,
+                    'status'       => $result['status'],
+                    'is_food'      => $result['is_food'],
+                    'explanation'  => $result['explanation'],
                     'processed_at' => now(),
                 ]);
                 ++$classified;
@@ -243,7 +248,9 @@ class ClassifyProducts extends Command
                     $this->line('Product: ' . $product->name);
                     $this->line('External ID: ' . $product->external_id);
                     $this->line('Category: ' . $product->category);
-                    $this->line(sprintf('Status: %s → %s', $originalStatus, $newStatus));
+                    $this->line(sprintf('Status: %s → %s', $originalStatus, $result['status']));
+                    $this->line('Is Food: ' . ($result['is_food'] === null ? 'null' : ($result['is_food'] ? 'true' : 'false')));
+                    $this->line('Explanation: ' . ($result['explanation'] ?? 'null'));
                     $this->line('---');
                 }
             } catch (\Exception $e) {

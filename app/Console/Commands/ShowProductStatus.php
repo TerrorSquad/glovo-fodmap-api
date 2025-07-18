@@ -13,9 +13,10 @@ class ShowProductStatus extends Command
      * The name and signature of the console command.
      */
     protected $signature = 'fodmap:status
-                            {--external-id= : Show status for a specific external ID}
+                            {--external-ids= : Show status for specific external IDs (comma-separated for multiple)}
                             {--status= : Filter by status (low, high, unknown)}
                             {--limit=10 : Number of products to show (default: 10)}
+                            {--with-explanation : Show detailed explanations}
                             {--stats : Show classification statistics}';
 
     /**
@@ -48,8 +49,10 @@ class ShowProductStatus extends Command
     {
         $query = Product::query();
 
-        if ($externalId = $this->option('external-id')) {
-            return $query->where('external_id', $externalId)->get();
+        if ($externalIds = $this->option('external-ids')) {
+            $ids = array_map('trim', explode(',', $externalIds));
+
+            return $query->whereIn('external_id', $ids)->get();
         }
 
         if ($status = $this->option('status')) {
@@ -63,7 +66,18 @@ class ShowProductStatus extends Command
 
     private function displayProducts($products): void
     {
-        $headers = ['External ID', 'Name', 'Category', 'Status', 'Created'];
+        $withExplanation = $this->option('with-explanation');
+
+        if ($withExplanation) {
+            $this->displayProductsWithExplanation($products);
+        } else {
+            $this->displayProductsTable($products);
+        }
+    }
+
+    private function displayProductsTable($products): void
+    {
+        $headers = ['External ID', 'Name', 'Category', 'Is Food', 'Status', 'Created'];
         $rows    = [];
 
         foreach ($products as $product) {
@@ -71,26 +85,72 @@ class ShowProductStatus extends Command
 
             // Normalize status for display
             $displayStatus = match (strtoupper((string) $status)) {
-                'HIGH'    => 'high',
-                'LOW'     => 'low',
-                'UNKNOWN' => 'unknown',
-                'PENDING' => 'pending',
-                'NA'      => 'na',
-                default   => strtolower((string) $status),
+                'HIGH'     => 'HIGH',
+                'LOW'      => 'LOW',
+                'MODERATE' => 'MODERATE',
+                'UNKNOWN'  => 'UNKNOWN',
+                'PENDING'  => 'PENDING',
+                'NA'       => 'NA',
+                default    => strtoupper((string) $status),
             };
 
             $statusColor = $this->getStatusColor($displayStatus);
+            $isFoodText  = $product->is_food  === null ? 'unknown' : ($product->is_food ? 'yes' : 'no');
+            $isFoodColor = $product->is_food  === null ? 'yellow' : ($product->is_food ? 'green' : 'gray');
 
             $rows[] = [
                 $product->external_id,
-                $this->truncate($product->name, 30),
+                $this->truncate($product->name, 25),
                 $this->truncate($product->category, 20),
+                sprintf('<fg=%s>%s</>', $isFoodColor, $isFoodText),
                 sprintf('<fg=%s>%s</>', $statusColor, $displayStatus),
                 $product->created_at->format('Y-m-d H:i'),
             ];
         }
 
         $this->table($headers, $rows);
+    }
+
+    private function displayProductsWithExplanation($products): void
+    {
+        foreach ($products as $index => $product) {
+            if ($index > 0) {
+                $this->newLine();
+            }
+
+            $status        = $product->status ?: 'unclassified';
+            $displayStatus = strtoupper((string) $status);
+            $statusColor   = $this->getStatusColor($displayStatus);
+
+            $isFoodText  = $product->is_food  === null ? 'Nepoznato' : ($product->is_food ? 'Da' : 'Ne');
+            $isFoodColor = $product->is_food  === null ? 'yellow' : ($product->is_food ? 'green' : 'gray');
+
+            $this->line('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            $this->line('📦 <fg=cyan>' . $product->name . '</>');
+            $this->line('🆔 External ID: <fg=yellow>' . $product->external_id . '</>');
+            $this->line('📂 Kategorija: ' . $product->category);
+            $this->line('🍽️  Hrana: <fg=' . $isFoodColor . '>' . $isFoodText . '</>');
+            $this->line('⚡ FODMAP Status: <fg=' . $statusColor . '>' . $displayStatus . '</>');
+
+            if ($product->explanation) {
+                $this->line('💬 Objašnjenje: <fg=white>' . $product->explanation . '</>');
+            } else {
+                $this->line('💬 Objašnjenje: <fg=gray>Nema objašnjenja</>');
+            }
+
+            $this->line('📅 Kreiran: ' . $product->created_at->format('d.m.Y H:i'));
+
+            if ($product->processed_at) {
+                $this->line('✅ Obrađen: ' . $product->processed_at->format('d.m.Y H:i'));
+            } else {
+                $this->line('⏳ <fg=yellow>Čeka na obradu</>');
+            }
+        }
+
+        if ($products->count() > 1) {
+            $this->newLine();
+            $this->info('Ukupno proizvoda: ' . $products->count());
+        }
     }
 
     private function showStatistics(): void
@@ -102,9 +162,23 @@ class ShowProductStatus extends Command
             ->toArray()
         ;
 
-        $unclassified = Product::whereIn('status', ['PENDING', 'UNKNOWN'])
-            ->orWhereNull('status')
-            ->orWhere('status', '')
+        $foodCounts = Product::selectRaw('is_food, COUNT(*) as count')
+            ->whereNotNull('is_food')
+            ->groupBy('is_food')
+            ->pluck('count', 'is_food')
+            ->toArray()
+        ;
+
+        $unclassified = Product::where(function ($query): void {
+            $query->whereNull('status')
+                ->orWhere('status', '')
+                ->orWhere('status', 'PENDING')
+                ->orWhere('status', 'UNKNOWN')
+            ;
+        })->count();
+
+        $withExplanations = Product::whereNotNull('explanation')
+            ->where('explanation', '!=', '')
             ->count()
         ;
 
@@ -117,9 +191,23 @@ class ShowProductStatus extends Command
                 ['Total Products', $total, '100%'],
                 ['High FODMAP', $statusCounts['HIGH'] ?? 0, $this->percentage($statusCounts['HIGH'] ?? 0, $total)],
                 ['Low FODMAP', $statusCounts['LOW'] ?? 0, $this->percentage($statusCounts['LOW'] ?? 0, $total)],
+                ['Moderate FODMAP', $statusCounts['MODERATE'] ?? 0, $this->percentage($statusCounts['MODERATE'] ?? 0, $total)],
                 ['Unknown', ($statusCounts['UNKNOWN'] ?? 0) + ($statusCounts['unknown'] ?? 0), $this->percentage(($statusCounts['UNKNOWN'] ?? 0) + ($statusCounts['unknown'] ?? 0), $total)],
                 ['Non-Food (NA)', $statusCounts['NA'] ?? 0, $this->percentage($statusCounts['NA'] ?? 0, $total)],
-                ['Pending/Unclassified', ($statusCounts['PENDING'] ?? 0) + $unclassified, $this->percentage(($statusCounts['PENDING'] ?? 0) + $unclassified, $total)],
+                ['Pending/Unclassified', $unclassified, $this->percentage($unclassified, $total)],
+            ]
+        );
+
+        $this->newLine();
+        $this->line('Food Classification');
+        $this->line('==================');
+
+        $this->table(
+            ['Type', 'Count', 'Percentage'],
+            [
+                ['Food Items', $foodCounts[1] ?? 0, $this->percentage($foodCounts[1] ?? 0, $total)],
+                ['Non-Food Items', $foodCounts[0] ?? 0, $this->percentage($foodCounts[0] ?? 0, $total)],
+                ['With Explanations', $withExplanations, $this->percentage($withExplanations, $total)],
             ]
         );
 
@@ -131,13 +219,14 @@ class ShowProductStatus extends Command
 
     private function getStatusColor(string $status): string
     {
-        return match ($status) {
-            'high'    => 'red',
-            'low'     => 'green',
-            'unknown' => 'yellow',
-            'pending' => 'cyan',
-            'na'      => 'gray',
-            default   => 'gray',
+        return match (strtoupper($status)) {
+            'HIGH'     => 'red',
+            'LOW'      => 'green',
+            'MODERATE' => 'yellow',
+            'UNKNOWN'  => 'yellow',
+            'PENDING'  => 'cyan',
+            'NA'       => 'gray',
+            default    => 'gray',
         };
     }
 
