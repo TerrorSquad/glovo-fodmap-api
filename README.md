@@ -317,6 +317,34 @@ fly deploy
 
 The `Dockerfile` and `fly.toml` are pre-configured for production deployment.
 
+### Auto-Startup Configuration
+
+For production environments with auto-shutdown/startup (like Fly.io), the application automatically:
+
+1. **Initializes on startup** via `.fly/scripts/3_fodmap_startup.sh`:
+   - Waits for database connection
+   - Runs migrations
+   - Optimizes Laravel caches
+
+2. **Sets up automatic scheduling**:
+   - Laravel scheduler runs as daemon via `.fly/supervisor/conf.d/scheduler.conf`
+   - Automatically restarts if the process crashes
+   - Processes products every 2 minutes with overlap protection
+   - Logs to `/var/log/laravel-scheduler.log`
+
+3. **Health monitoring**:
+   - `/api/health` endpoint includes scheduler status
+   - Monitors pending products and recent processing activity
+   - Alerts if scheduler may need attention
+
+### Deployment Features
+
+- **Zero-downtime startup**: Database waits and gradual initialization
+- **Automatic queue processing**: Products are classified every 2 minutes without manual intervention
+- **Overlap protection**: Only one classification job runs at a time
+- **Self-healing**: Supervisor automatically restarts failed processes
+- **Health monitoring**: Built-in endpoints to verify scheduler functionality
+
 ### Manual Deployment
 
 1. **Build assets**

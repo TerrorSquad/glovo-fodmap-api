@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use OpenApi\Attributes as OA;
@@ -35,10 +36,26 @@ class DocsController extends Controller
     )]
     public function health(): JsonResponse
     {
+        // Check if we have pending products (scheduler health indicator)
+        $pendingCount = Product::where('status', 'PENDING')
+            ->whereNull('processed_at')
+            ->count()
+        ;
+
+        // Check if any products were processed recently (within last 10 minutes)
+        $recentlyProcessed = Product::where('processed_at', '>=', now()->subMinutes(10))
+            ->count()
+        ;
+
+        $schedulerStatus = $pendingCount === 0 || $recentlyProcessed > 0 ? 'healthy' : 'may_need_attention';
+
         return response()->json([
-            'status'    => 'ok',
-            'timestamp' => now()->toISOString(),
-            'version'   => config('app.version', '1.0.0'),
+            'status'              => 'ok',
+            'timestamp'           => now()->toISOString(),
+            'version'             => config('app.version', '1.0.0'),
+            'scheduler_status'    => $schedulerStatus,
+            'pending_products'    => $pendingCount,
+            'recently_processed'  => $recentlyProcessed,
         ]);
     }
 
