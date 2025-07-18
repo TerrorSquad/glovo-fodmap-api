@@ -82,9 +82,6 @@ class ClassifyProductsJob implements ShouldQueue
 
             // Mark job completion for rate limiting
             $this->markJobCompleted();
-
-            // Dispatch another job if there might be more products to process
-            $this->dispatchNextJobIfNeeded();
         } catch (\Exception $exception) {
             Log::error('Background classification failed', [
                 'product_count' => $products->count(),
@@ -181,25 +178,5 @@ class ClassifyProductsJob implements ShouldQueue
             ->limit(self::BATCH_SIZE)
             ->get()
         ;
-    }
-
-    /**
-     * Dispatch another job if there are more unclassified products to process.
-     */
-    private function dispatchNextJobIfNeeded(): void
-    {
-        $remainingCount = Product::where('status', 'PENDING')
-            ->whereNull('processed_at')
-            ->count()
-        ;
-
-        if ($remainingCount > 0) {
-            Log::info('Dispatching next classification job', [
-                'remaining_products' => $remainingCount,
-            ]);
-
-            // Dispatch next job with a small delay to respect rate limits
-            self::dispatch()->delay(now()->addSeconds(self::MIN_JOB_INTERVAL));
-        }
     }
 }

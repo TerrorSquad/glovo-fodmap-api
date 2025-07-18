@@ -8,7 +8,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\ClassifyProductsRequest;
 use App\Http\Requests\Api\V1\GetProductStatusRequest;
 use App\Http\Resources\Api\V1\ProductStatusResource;
-use App\Jobs\ClassifyProductsJob;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use OpenApi\Attributes as OA;
@@ -88,12 +87,9 @@ class ProductController extends Controller
 
         Product::insert($placeholderProducts);
 
-        // Dispatch background classification job (will process all unclassified products)
-        ClassifyProductsJob::dispatch();
-
         return response()->json([
             'submitted' => $newProductsData->count(),
-            'message'   => 'Products queued for classification. Use the status endpoint to check progress.',
+            'message'   => 'Products queued for classification. Check back in a few minutes for results.',
         ]);
     }
 
