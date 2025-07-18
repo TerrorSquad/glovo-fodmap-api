@@ -14,10 +14,10 @@ class ScheduleServiceProvider extends ServiceProvider
         $this->app->booted(function (): void {
             $schedule = $this->app->make(Schedule::class);
 
-            // Run classification job every 2 minutes with overlap protection
+            // Run classification job every 5 seconds with overlap protection
             $schedule->command('fodmap:process-pending')
-                ->everyTwoMinutes()
-                ->withoutOverlapping(5) // Prevent overlapping for 5 minutes
+                ->everyFiveSeconds()
+                ->withoutOverlapping(1) // Prevent overlapping for 1 minute
                 ->runInBackground()
             ;
         });
