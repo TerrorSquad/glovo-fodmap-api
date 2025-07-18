@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Services\CachedFodmapClassifierService;
 use App\Services\FodmapClassifierInterface;
+use App\Services\GeminiFodmapClassifierService;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
@@ -16,8 +16,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // Bind to Gemini classifier
-        $this->app->bind(FodmapClassifierInterface::class, CachedFodmapClassifierService::class);
+        // Bind to direct Gemini classifier - database already prevents redundant calls
+        $this->app->bind(FodmapClassifierInterface::class, GeminiFodmapClassifierService::class);
     }
 
     /**
