@@ -50,20 +50,28 @@ class ClassifyProductsJob implements ShouldQueue
             $classificationResults = $classifier->classifyBatch($products->all());
 
             // Update products with classification results
-            foreach ($products as $index => $product) {
+            foreach ($products as $product) {
                 /** @var Product $product */
                 $originalStatus = $product->status;
-                $newStatus      = $classificationResults[$index] ?? 'UNKNOWN';
+                $result         = $classificationResults[$product->external_id] ?? [
+                    'status'      => 'UNKNOWN',
+                    'is_food'     => true,
+                    'explanation' => 'No classification result received',
+                ];
 
                 $product->update([
-                    'status'       => $newStatus,
+                    'status'       => $result['status'],
+                    'is_food'      => $result['is_food'],
+                    'explanation'  => $result['explanation'],
                     'processed_at' => now(),
                 ]);
 
                 Log::debug('Product classified', [
                     'external_id' => $product->external_id,
                     'name'        => $product->name,
-                    'status'      => $originalStatus . ' → ' . $newStatus,
+                    'status'      => $originalStatus . ' → ' . $result['status'],
+                    'is_food'     => $result['is_food'],
+                    'explanation' => $result['explanation'],
                 ]);
             }
 
@@ -88,6 +96,8 @@ class ClassifyProductsJob implements ShouldQueue
             $products->each(function (Product $product): void {
                 $product->update([
                     'status'       => 'UNKNOWN',
+                    'is_food'      => true,
+                    'explanation'  => 'Classification failed due to error',
                     'processed_at' => now(),
                 ]);
             });

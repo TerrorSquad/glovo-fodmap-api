@@ -14,7 +14,9 @@ use OpenApi\Attributes as OA;
  * @property string      $external_id
  * @property string      $name
  * @property string      $category
+ * @property null|bool   $is_food
  * @property string      $status
+ * @property null|string $explanation
  * @property Carbon      $created_at
  * @property Carbon      $updated_at
  * @property null|Carbon $processed_at
@@ -28,12 +30,20 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'externalId', description: 'External system identifier', type: 'string', example: 'glovo-123'),
         new OA\Property(property: 'name', description: 'Product name', type: 'string', example: 'Banana'),
         new OA\Property(property: 'category', description: 'Product category', type: 'string', example: 'Fruit'),
+        new OA\Property(property: 'isFood', description: 'Whether this product is food (true) or non-food item (false). Null if not yet classified.', type: 'boolean', example: true, nullable: true),
         new OA\Property(
             property: 'status',
             description: 'FODMAP classification status: PENDING (not yet processed), LOW (safe for IBS), MODERATE (limited portions), HIGH (avoid), UNKNOWN (classification failed)',
             type: 'string',
             enum: ['PENDING', 'LOW', 'MODERATE', 'HIGH', 'UNKNOWN'],
             example: 'LOW'
+        ),
+        new OA\Property(
+            property: 'explanation',
+            description: 'Explanation of why the product has this FODMAP classification (e.g., "Contains fructose from natural fruit sugars")',
+            type: 'string',
+            example: 'Low FODMAP fruit, safe in normal portions',
+            nullable: true
         ),
         new OA\Property(property: 'createdAt', description: 'When the product was first submitted', type: 'string', format: 'date-time'),
         new OA\Property(property: 'updatedAt', description: 'When the product was last updated', type: 'string', format: 'date-time'),
@@ -54,7 +64,9 @@ class ProductResource extends JsonResource
             'externalId'  => $this->external_id,
             'name'        => $this->name,
             'category'    => $this->category,
+            'isFood'      => $this->is_food,
             'status'      => $this->status,
+            'explanation' => $this->explanation,
             'createdAt'   => $this->created_at,
             'updatedAt'   => $this->updated_at,
             'processedAt' => $this->processed_at,
