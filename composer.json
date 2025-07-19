@@ -2,6 +2,7 @@
   "$schema": "https://getcomposer.org/schema.json",
   "name": "laravel/laravel",
   "type": "project",
+  "version": "0.1.0",
   "description": "AI-powered FODMAP classification API using Google Gemini with Serbian language support and batch processing optimization.",
   "keywords": [
     "laravel",
