@@ -97,7 +97,7 @@ paths:
       tags:
         - Products
       summary: 'Get product classification status'
-      description: 'Check the current FODMAP classification status for products by their external IDs. Returns detailed information about found products and lists any missing IDs.'
+      description: 'Check the current FODMAP classification status for products by their name hashes. Returns detailed information about found products and lists any missing IDs.'
       operationId: d4b5edc94193869d6f414513756cdd2f
       requestBody:
         required: true
@@ -187,8 +187,8 @@ components:
           description: 'Number of products not found'
           type: integer
           example: 0
-        missing_ids:
-          description: 'Array of external IDs that were not found'
+        missingHashes:
+          description: 'Array of name hashes that were not found'
           type: array
           items:
             type: string
