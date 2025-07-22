@@ -94,7 +94,7 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
             $result = $this->classify($products[0]);
 
             return [
-                $products[0]->external_id => $result,
+                $products[0]->name_hash => $result,
             ];
         }
 
@@ -131,7 +131,7 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
             // Individual classification can still fallback to individual calls
             $fallbackResults = [];
             foreach ($products as $product) {
-                $fallbackResults[$product->external_id] = [
+                $fallbackResults[$product->name_hash] = [
                     'status'      => 'UNKNOWN',
                     'is_food'     => null,
                     'explanation' => 'Batch classification failed: ' . $exception->getMessage(),
@@ -231,7 +231,7 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
             $productIndex = $index + 1;
             $productList .= sprintf('%d. Name: %s%s', $productIndex, $product->name, PHP_EOL);
             $productList .= sprintf('   Category: %s%s', $product->category, PHP_EOL);
-            $productList .= "   External ID: {$product->external_id}\n\n";
+            $productList .= "   Name Hash: {$product->name_hash}\n\n";
         }
 
         return <<<PROMPT
@@ -283,13 +283,13 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
             Respond with valid JSON array with Serbian explanations:
             [
                 {
-                    "external_id": "product_external_id_1",
+                    "name_hash": "product_name_hash_1",
                     "status": "LOW|MODERATE|HIGH|NA|UNKNOWN",
                     "is_food": true|false,
                     "explanation": "Kratko objašnjenje na srpskom jeziku"
                 },
                 {
-                    "external_id": "product_external_id_2",
+                    "name_hash": "product_name_hash_2",
                     "status": "LOW|MODERATE|HIGH|NA|UNKNOWN",
                     "is_food": true|false,
                     "explanation": "Kratko objašnjenje na srpskom jeziku"
@@ -318,25 +318,25 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
             }
 
             foreach ($jsonResponse as $item) {
-                if (isset($item['external_id'], $item['status'])) {
-                    $results[$item['external_id']] = [
+                if (isset($item['name_hash'], $item['status'])) {
+                    $results[$item['name_hash']] = [
                         'status'      => strtoupper((string) $item['status']),
-                        'is_food'     => $item['is_food']     ?? true,
-                        'explanation' => $item['explanation'] ?? null,
+                        'is_food'     => $item['is_food']         ?? null,
+                        'explanation' => $item['explanation']     ?? null,
                     ];
                 }
             }
 
             // Fill missing results with fallback for each product
             foreach ($products as $product) {
-                if (! isset($results[$product->external_id])) {
-                    $results[$product->external_id] = [
+                if (! isset($results[$product->name_hash])) {
+                    $results[$product->name_hash] = [
                         'status'      => 'UNKNOWN',
-                        'is_food'     => true,
+                        'is_food'     => null,
                         'explanation' => 'No classification result received',
                     ];
                     Log::warning('Missing classification result for product', [
-                        'external_id'  => $product->external_id,
+                        'name_hash'    => $product->name_hash,
                         'product_name' => $product->name,
                     ]);
                 }
@@ -349,9 +349,9 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
 
             // Fallback: return UNKNOWN for all products
             foreach ($products as $product) {
-                $results[$product->external_id] = [
+                $results[$product->name_hash] = [
                     'status'      => 'UNKNOWN',
-                    'is_food'     => true,
+                    'is_food'     => null,
                     'explanation' => 'Failed to parse classification response',
                 ];
             }
@@ -378,8 +378,8 @@ class GeminiFodmapClassifierService implements FodmapClassifierInterface
 
             return [
                 'status'      => strtoupper($jsonResponse['status'] ?? 'UNKNOWN'),
-                'is_food'     => $jsonResponse['is_food']     ?? true,
-                'explanation' => $jsonResponse['explanation'] ?? null,
+                'is_food'     => $jsonResponse['is_food']         ?? null,
+                'explanation' => $jsonResponse['explanation']     ?? null,
             ];
         } catch (\Exception $exception) {
             Log::error('Failed to parse classification response', [

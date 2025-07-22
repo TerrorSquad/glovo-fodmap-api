@@ -15,7 +15,7 @@ class ClassifyProducts extends Command
      * The name and signature of the console command.
      */
     protected $signature = 'fodmap:classify
-                            {--external-ids= : External IDs to classify (comma-separated for multiple)}
+                            {--name-hashes= : Name hashes to classify (comma-separated for multiple)}
                             {--all : Classify all products in the database}
                             {--force : Re-classify products even if they already have a status}
                             {--reprocess : Re-classify products that have already been processed}
@@ -61,10 +61,10 @@ class ClassifyProducts extends Command
     {
         $query = Product::query();
 
-        if ($externalIds = $this->option('external-ids')) {
-            $ids = array_map('trim', explode(',', $externalIds));
+        if ($nameHashes = $this->option('name-hashes')) {
+            $ids = array_map('trim', explode(',', $nameHashes));
 
-            return $query->whereIn('external_id', $ids)->get();
+            return $query->whereIn('name_hash', $ids)->get();
         }
 
         if ($this->option('all')) {
@@ -160,7 +160,7 @@ class ClassifyProducts extends Command
 
                 foreach ($batch->values() as $index => $product) {
                     $originalStatus = $product->status;
-                    $result         = $results[$product->external_id] ?? [
+                    $result         = $results[$product->name_hash] ?? [
                         'status'      => 'UNKNOWN',
                         'is_food'     => null,
                         'explanation' => 'No classification result received',
@@ -177,7 +177,7 @@ class ClassifyProducts extends Command
                     if ($this->option('verbose')) {
                         $this->newLine();
                         $this->line('Product: ' . $product->name);
-                        $this->line('External ID: ' . $product->external_id);
+                        $this->line('Name Hash: ' . $product->name_hash);
                         $this->line('Category: ' . $product->category);
                         $this->line(sprintf('Status: %s → %s', $originalStatus, $result['status']));
                         $this->line('Is Food: ' . ($result['is_food'] === null ? 'null' : ($result['is_food'] ? 'true' : 'false')));
@@ -246,7 +246,7 @@ class ClassifyProducts extends Command
                 if ($this->option('verbose')) {
                     $this->newLine();
                     $this->line('Product: ' . $product->name);
-                    $this->line('External ID: ' . $product->external_id);
+                    $this->line('Name Hash: ' . $product->name_hash);
                     $this->line('Category: ' . $product->category);
                     $this->line(sprintf('Status: %s → %s', $originalStatus, $result['status']));
                     $this->line('Is Food: ' . ($result['is_food'] === null ? 'null' : ($result['is_food'] ? 'true' : 'false')));
@@ -257,7 +257,7 @@ class ClassifyProducts extends Command
                 ++$errors;
                 if ($this->option('verbose')) {
                     $this->newLine();
-                    $this->error(sprintf('Failed to classify product %s: %s', $product->external_id, $e->getMessage()));
+                    $this->error(sprintf('Failed to classify product %s: %s', $product->name_hash, $e->getMessage()));
                 }
             }
 

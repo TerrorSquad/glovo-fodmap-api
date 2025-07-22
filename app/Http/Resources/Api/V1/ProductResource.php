@@ -11,7 +11,7 @@ use OpenApi\Attributes as OA;
 
 /**
  * @property int         $id
- * @property string      $external_id
+ * @property string      $name_hash
  * @property string      $name
  * @property string      $category
  * @property null|bool   $is_food
@@ -27,7 +27,6 @@ use OpenApi\Attributes as OA;
     description: 'Product resource response with FODMAP classification status',
     properties: [
         new OA\Property(property: 'id', description: 'Internal database ID', type: 'integer', example: 123),
-        new OA\Property(property: 'externalId', description: 'External system identifier', type: 'string', example: 'glovo-123'),
         new OA\Property(property: 'name', description: 'Product name', type: 'string', example: 'Banana'),
         new OA\Property(property: 'category', description: 'Product category', type: 'string', example: 'Fruit'),
         new OA\Property(property: 'isFood', description: 'Whether this product is food (true) or non-food item (false). Null if not yet classified.', type: 'boolean', example: true, nullable: true),
@@ -61,7 +60,7 @@ class ProductResource extends JsonResource
     {
         return [
             'id'          => $this->id,
-            'externalId'  => $this->external_id,
+            'nameHash'    => $this->name_hash,
             'name'        => $this->name,
             'category'    => $this->category,
             'isFood'      => $this->is_food,

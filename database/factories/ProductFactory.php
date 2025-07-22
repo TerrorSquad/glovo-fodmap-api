@@ -21,21 +21,33 @@ class ProductFactory extends Factory
      */
     public function definition(): array
     {
+        $name = fake()->randomElement([
+            'Banana',
+            'Apple',
+            'Orange',
+            'Chicken Breast',
+            'Rice',
+            'Onion',
+            'Garlic',
+            'Wheat Bread',
+            'Milk',
+            'Cheese',
+        ]);
+        $normalized = mb_strtolower(trim((string) $name));
+        $hash       = 0;
+        $length     = mb_strlen($normalized);
+        for ($i = 0; $i < $length; ++$i) {
+            $charCode = mb_ord(mb_substr($normalized, $i, 1));
+            $hash     = ($hash << 5) - $hash + $charCode;
+            $hash |= 0;
+        }
+
+        $name_hash = 'name_' . abs($hash);
+
         return [
-            'external_id' => fake()->unique()->uuid(),
-            'name'        => fake()->randomElement([
-                'Banana',
-                'Apple',
-                'Orange',
-                'Chicken Breast',
-                'Rice',
-                'Onion',
-                'Garlic',
-                'Wheat Bread',
-                'Milk',
-                'Cheese',
-            ]),
-            'category' => fake()->randomElement([
+            'name_hash' => $name_hash,
+            'name'      => $name,
+            'category'  => fake()->randomElement([
                 'Fruits',
                 'Vegetables',
                 'Meat',

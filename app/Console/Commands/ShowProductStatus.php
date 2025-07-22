@@ -13,7 +13,7 @@ class ShowProductStatus extends Command
      * The name and signature of the console command.
      */
     protected $signature = 'fodmap:status
-                            {--external-ids= : Show status for specific external IDs (comma-separated for multiple)}
+                            {--name-hashes= : Show status for specific name_hashes (comma-separated for multiple)}
                             {--status= : Filter by status (low, high, unknown)}
                             {--limit=10 : Number of products to show (default: 10)}
                             {--with-explanation : Show detailed explanations}
@@ -49,10 +49,10 @@ class ShowProductStatus extends Command
     {
         $query = Product::query();
 
-        if ($externalIds = $this->option('external-ids')) {
-            $ids = array_map('trim', explode(',', $externalIds));
+        if ($nameHashes = $this->option('name-hashes')) {
+            $hashes = array_map('trim', explode(',', $nameHashes));
 
-            return $query->whereIn('external_id', $ids)->get();
+            return $query->whereIn('name_hash', $hashes)->get();
         }
 
         if ($status = $this->option('status')) {
@@ -77,7 +77,7 @@ class ShowProductStatus extends Command
 
     private function displayProductsTable($products): void
     {
-        $headers = ['External ID', 'Name', 'Category', 'Is Food', 'Status', 'Created'];
+        $headers = ['Name Hash', 'Name', 'Category', 'Is Food', 'Status', 'Created'];
         $rows    = [];
 
         foreach ($products as $product) {
@@ -99,7 +99,7 @@ class ShowProductStatus extends Command
             $isFoodColor = $product->is_food  === null ? 'yellow' : ($product->is_food ? 'green' : 'gray');
 
             $rows[] = [
-                $product->external_id,
+                $product->name_hash,
                 $this->truncate($product->name, 25),
                 $this->truncate($product->category, 20),
                 sprintf('<fg=%s>%s</>', $isFoodColor, $isFoodText),
@@ -127,7 +127,7 @@ class ShowProductStatus extends Command
 
             $this->line('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
             $this->line('📦 <fg=cyan>' . $product->name . '</>');
-            $this->line('🆔 External ID: <fg=yellow>' . $product->external_id . '</>');
+            $this->line('🆔 Name Hash: <fg=yellow>' . $product->name_hash . '</>');
             $this->line('📂 Kategorija: ' . $product->category);
             $this->line('🍽️  Hrana: <fg=' . $isFoodColor . '>' . $isFoodText . '</>');
             $this->line('⚡ FODMAP Status: <fg=' . $statusColor . '>' . $displayStatus . '</>');

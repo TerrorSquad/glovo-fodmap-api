@@ -205,11 +205,6 @@
                         "type": "integer",
                         "example": 123
                     },
-                    "externalId": {
-                        "description": "External system identifier",
-                        "type": "string",
-                        "example": "glovo-123"
-                    },
                     "name": {
                         "description": "Product name",
                         "type": "string",
@@ -316,14 +311,14 @@
                 "title": "Product Input",
                 "description": "Individual product data for classification",
                 "required": [
-                    "externalId",
+                    "nameHash",
                     "name"
                 ],
                 "properties": {
-                    "externalId": {
-                        "description": "Unique external identifier for the product",
+                    "nameHash": {
+                        "description": "Stable hash identifier for the product",
                         "type": "string",
-                        "example": "glovo-123"
+                        "example": "name_123456"
                     },
                     "name": {
                         "description": "Product name",
@@ -342,18 +337,18 @@
                 "title": "Product Status Request",
                 "description": "Request payload for checking product classification status",
                 "required": [
-                    "external_ids"
+                    "name_hashes"
                 ],
                 "properties": {
-                    "external_ids": {
-                        "description": "Array of external IDs to check status for",
+                    "name_hashes": {
+                        "description": "Array of name_hashes to check status for",
                         "type": "array",
                         "items": {
                             "type": "string"
                         },
                         "example": [
-                            "glovo-123",
-                            "glovo-456"
+                            "name_123456",
+                            "name_654321"
                         ]
                     }
                 },

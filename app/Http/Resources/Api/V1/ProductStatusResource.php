@@ -22,8 +22,8 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'found', description: 'Number of products found', type: 'integer', example: 2),
         new OA\Property(property: 'missing', description: 'Number of products not found', type: 'integer', example: 0),
         new OA\Property(
-            property: 'missing_ids',
-            description: 'Array of external IDs that were not found',
+            property: 'missingHashes',
+            description: 'Array of name hashes that were not found',
             type: 'array',
             items: new OA\Items(type: 'string'),
             example: []
@@ -40,10 +40,10 @@ class ProductStatusResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'results'     => ProductResource::collection($this->resource['products']),
-            'found'       => $this->resource['found'],
-            'missing'     => $this->resource['missing'],
-            'missing_ids' => $this->resource['missing_ids'],
+            'results'       => ProductResource::collection($this->resource['products']),
+            'found'         => $this->resource['found'],
+            'missing'       => $this->resource['missing'],
+            'missingHashes' => $this->resource['missing_hashes'],
         ];
     }
 }
