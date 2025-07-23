@@ -59,11 +59,11 @@ class ProductController extends Controller
     public function submit(ClassifyProductsRequest $request): JsonResponse
     {
         $incomingProducts = collect($request->validated()['products']);
-        $externalIds      = $incomingProducts->pluck('externalId')->unique();
+        $nameHashes       = $incomingProducts->pluck('hash')->unique();
 
         // Check which products already exist
-        $existingExternalIds = Product::whereIn('external_id', $externalIds)->pluck('external_id');
-        $newProductsData     = $incomingProducts->whereNotIn('externalId', $existingExternalIds);
+        $existingNameHashes = Product::whereIn('name_hash', $nameHashes)->pluck('name_hash');
+        $newProductsData    = $incomingProducts->whereNotIn('hash', $existingNameHashes);
 
         if ($newProductsData->isEmpty()) {
             return response()->json([
@@ -76,12 +76,12 @@ class ProductController extends Controller
         $placeholderProducts = [];
         foreach ($newProductsData as $data) {
             $placeholderProducts[] = [
-                'external_id' => $data['externalId'],
-                'name'        => $data['name'],
-                'category'    => $data['category'] ?? 'Uncategorized',
-                'status'      => 'PENDING',
-                'created_at'  => now(),
-                'updated_at'  => now(),
+                'name_hash'  => $data['hash'],
+                'name'       => $data['name'],
+                'category'   => $data['category'] ?? 'Uncategorized',
+                'status'     => 'PENDING',
+                'created_at' => now(),
+                'updated_at' => now(),
             ];
         }
 
@@ -94,12 +94,12 @@ class ProductController extends Controller
     }
 
     /**
-     * Get current classification status for products by external IDs.
+     * Get current classification status for products by name hashes.
      */
     #[OA\Post(
         path: '/v1/products/status',
         summary: 'Get product classification status',
-        description: 'Check the current FODMAP classification status for products by their external IDs. Returns detailed information about found products and lists any missing IDs.',
+        description: 'Check the current FODMAP classification status for products by their name hashes. Returns detailed information about found products and lists any missing IDs.',
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(ref: '#/components/schemas/ProductStatusRequest')
@@ -120,19 +120,19 @@ class ProductController extends Controller
     )]
     public function status(GetProductStatusRequest $request): JsonResponse
     {
-        $externalIds = $request->validated()['external_ids'];
+        $nameHashes = $request->validated()['hashes'];
 
-        // Get products by external IDs
-        $products = Product::whereIn('external_id', $externalIds)->get();
+        // Get products by name_hash
+        $products = Product::whereIn('name_hash', $nameHashes)->get();
 
-        $foundIds   = $products->pluck('external_id')->toArray();
-        $missingIds = array_diff($externalIds, $foundIds);
+        $foundHashes   = $products->pluck('name_hash')->toArray();
+        $missingHashes = array_diff($nameHashes, $foundHashes);
 
         $statusData = [
-            'products'    => $products,
-            'found'       => $products->count(),
-            'missing'     => count($missingIds),
-            'missing_ids' => $missingIds,
+            'products'       => $products,
+            'found'          => $products->count(),
+            'missing'        => count($missingHashes),
+            'missing_hashes' => $missingHashes,
         ];
 
         return response()->json(new ProductStatusResource($statusData));

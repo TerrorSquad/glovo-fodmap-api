@@ -26,8 +26,8 @@ class GetProductStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'external_ids'   => ['required', 'array', 'min:1'],
-            'external_ids.*' => ['required', 'string'],
+            'hashes'   => ['required', 'array', 'min:1'],
+            'hashes.*' => ['required', 'string'],
         ];
     }
 }

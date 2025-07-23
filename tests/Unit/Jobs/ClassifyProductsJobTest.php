@@ -72,12 +72,12 @@ class ClassifyProductsJobTest extends TestCase
                 && collect($products)->pluck('id')->contains($product1->id)
                 && collect($products)->pluck('id')->contains($product2->id)))
             ->willReturn([
-                $product1->external_id => [
+                $product1->name_hash => [
                     'status'      => 'LOW',
                     'is_food'     => true,
                     'explanation' => 'Low FODMAP',
                 ],
-                $product2->external_id => [
+                $product2->name_hash => [
                     'status'      => 'HIGH',
                     'is_food'     => true,
                     'explanation' => 'High FODMAP',
@@ -118,7 +118,7 @@ class ClassifyProductsJobTest extends TestCase
             ->willReturnCallback(function ($products): array {
                 $results = [];
                 foreach ($products as $product) {
-                    $results[$product->external_id] = [
+                    $results[$product->name_hash] = [
                         'status'      => 'LOW',
                         'is_food'     => true,
                         'explanation' => 'Low FODMAP test result',

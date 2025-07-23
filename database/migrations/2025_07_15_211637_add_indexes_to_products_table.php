@@ -26,12 +26,6 @@ return new class extends Migration {
             }
 
             try {
-                $table->index('external_id', 'products_external_id_idx');
-            } catch (Exception $exception) {
-                // Index might already exist, ignore
-            }
-
-            try {
                 $table->index('processed_at', 'products_processed_at_idx');
             } catch (Exception $exception) {
                 // Index might already exist, ignore
@@ -40,13 +34,13 @@ return new class extends Migration {
             // Search optimization
             try {
                 $table->index('name', 'products_name_idx');
-            } catch (Exception $exception) {
+            } catch (Exception) {
                 // Index might already exist, ignore
             }
 
             try {
                 $table->index(['name', 'category'], 'products_name_category_idx');
-            } catch (Exception $exception) {
+            } catch (Exception) {
                 // Index might already exist, ignore
             }
 
@@ -76,12 +70,6 @@ return new class extends Migration {
             }
 
             try {
-                $table->dropIndex('products_external_id_idx');
-            } catch (Exception $exception) {
-                // Index might not exist, ignore
-            }
-
-            try {
                 $table->dropIndex('products_processed_at_idx');
             } catch (Exception $exception) {
                 // Index might not exist, ignore
@@ -89,13 +77,13 @@ return new class extends Migration {
 
             try {
                 $table->dropIndex('products_name_idx');
-            } catch (Exception $exception) {
+            } catch (Exception) {
                 // Index might not exist, ignore
             }
 
             try {
                 $table->dropIndex('products_name_category_idx');
-            } catch (Exception $exception) {
+            } catch (Exception) {
                 // Index might not exist, ignore
             }
 

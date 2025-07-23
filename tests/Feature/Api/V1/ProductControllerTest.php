@@ -30,14 +30,14 @@ class ProductControllerTest extends TestCase
         $response = $this->postJson('/api/v1/products/submit', [
             'products' => [
                 [
-                    'externalId' => 'test-product-1',
-                    'name'       => 'Banana',
-                    'category'   => 'Fruits',
+                    'nameHash' => 'name_123456',
+                    'name'     => 'Banana',
+                    'category' => 'Fruits',
                 ],
                 [
-                    'externalId' => 'test-product-2',
-                    'name'       => 'Apple',
-                    'category'   => 'Fruits',
+                    'nameHash' => 'name_654321',
+                    'name'     => 'Apple',
+                    'category' => 'Fruits',
                 ],
             ],
         ]);
@@ -50,8 +50,8 @@ class ProductControllerTest extends TestCase
         ;
 
         $this->assertDatabaseHas('products', [
-            'external_id' => 'test-product-1',
-            'name'        => 'Banana',
+            'name_hash' => 'name_123456',
+            'name'      => 'Banana',
         ]);
 
         // Products are now processed by scheduled command, not immediate dispatch
@@ -62,28 +62,28 @@ class ProductControllerTest extends TestCase
     {
         // Create test products
         $product1 = Product::factory()->create([
-            'external_id'  => 'test-1',
+            'name_hash'    => 'name_111111',
             'name'         => 'Banana',
             'status'       => 'LOW',
             'processed_at' => now(),
         ]);
 
         $product2 = Product::factory()->create([
-            'external_id'  => 'test-2',
+            'name_hash'    => 'name_222222',
             'name'         => 'Onion',
             'status'       => 'HIGH',
             'processed_at' => now(),
         ]);
 
         $response = $this->postJson('/api/v1/products/status', [
-            'external_ids' => ['test-1', 'test-2'],
+            'name_hashes' => ['name_111111', 'name_222222'],
         ]);
 
         $response->assertStatus(200)
             ->assertJsonStructure([
                 'results' => [
                     '*' => [
-                        'externalId',
+                        'nameHash',
                         'name',
                         'status',
                         'createdAt',
@@ -93,7 +93,7 @@ class ProductControllerTest extends TestCase
                 ],
                 'found',
                 'missing',
-                'missing_ids',
+                'missingHashes',
             ])
         ;
     }

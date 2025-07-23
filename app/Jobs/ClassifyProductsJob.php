@@ -53,7 +53,7 @@ class ClassifyProductsJob implements ShouldQueue
             foreach ($products as $product) {
                 /** @var Product $product */
                 $originalStatus = $product->status;
-                $result         = $classificationResults[$product->external_id] ?? [
+                $result         = $classificationResults[$product->name_hash] ?? [
                     'status'      => 'UNKNOWN',
                     'is_food'     => true,
                     'explanation' => 'No classification result received',
@@ -67,7 +67,7 @@ class ClassifyProductsJob implements ShouldQueue
                 ]);
 
                 Log::debug('Product classified', [
-                    'external_id' => $product->external_id,
+                    'name_hash'   => $product->name_hash,
                     'name'        => $product->name,
                     'status'      => $originalStatus . ' → ' . $result['status'],
                     'is_food'     => $result['is_food'],

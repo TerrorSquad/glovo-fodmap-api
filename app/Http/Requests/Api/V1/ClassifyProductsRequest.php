@@ -26,10 +26,10 @@ class ClassifyProductsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'products'              => ['required', 'array', 'min:1'],
-            'products.*.externalId' => ['required', 'string'],
-            'products.*.name'       => ['required', 'string', 'max:255'],
-            'products.*.category'   => ['nullable', 'string'],
+            'products'            => ['required', 'array', 'min:1'],
+            'products.*.hash'     => ['required', 'string'],
+            'products.*.name'     => ['required', 'string', 'max:255'],
+            'products.*.category' => ['nullable', 'string'],
         ];
     }
 }

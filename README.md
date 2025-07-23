@@ -123,12 +123,12 @@ This project uses Google Gemini 2.5 Flash Lite for advanced FODMAP classificatio
 {
   "products": [
     {
-      "externalId": "12345",
+      "nameHash": "name_12345",
       "name": "Whole Wheat Bread",
       "category": "Bakery"
     },
     {
-      "externalId": "67890",
+      "nameHash": "name_67890",
       "name": "Rice Cakes",
       "category": "Snacks"
     }
@@ -141,7 +141,7 @@ This project uses Google Gemini 2.5 Flash Lite for advanced FODMAP classificatio
 {
   "results": [
     {
-      "external_id": "12345",
+      "name_hash": "name_12345",
       "name": "Whole Wheat Bread",
       "category": "Bakery",
       "status": "HIGH",
@@ -152,7 +152,7 @@ This project uses Google Gemini 2.5 Flash Lite for advanced FODMAP classificatio
       "processed_at": "2025-07-14T10:00:00Z"
     },
     {
-      "external_id": "67890",
+      "name_hash": "name_67890",
       "name": "Rice Cakes",
       "category": "Snacks",
       "status": "LOW",
@@ -167,7 +167,7 @@ This project uses Google Gemini 2.5 Flash Lite for advanced FODMAP classificatio
 ### FODMAP Status Values
 
 - **`HIGH`**: Contains high FODMAP ingredients
-- **`LOW`**: Contains only low FODMAP ingredients  
+- **`LOW`**: Contains only low FODMAP ingredients
 - **`MODERATE`**: Contains moderate levels of FODMAP ingredients
 - **`NA`**: Non-food products (cosmetics, cleaning products, etc.)
 - **`UNKNOWN`**: Cannot be classified (insufficient data or mixed ingredients)
@@ -188,7 +188,7 @@ The API includes powerful console commands for classification and monitoring:
 
 ```bash
 # Classify specific products
-php artisan fodmap:classify --external-ids=12345,67890
+php artisan fodmap:classify --name-hashes=name_127381641
 
 # Classify all unclassified products
 php artisan fodmap:classify --all
@@ -210,7 +210,7 @@ php artisan fodmap:classify --all --no-batch
 php artisan fodmap:status --limit=10
 
 # Show specific products with detailed explanations
-php artisan fodmap:status --external-ids=12345,67890 --with-explanation
+php artisan fodmap:status --name-hashes=name_12345,name_67890 --with-explanation
 
 # Filter by status
 php artisan fodmap:status --status=HIGH --limit=5
@@ -222,7 +222,7 @@ php artisan fodmap:status --stats
 ### Command Options
 
 **Classify Options:**
-- `--external-ids`: Specific products to classify (comma-separated)
+- `--name-hashes`: Specific products to classify (comma-separated)
 - `--all`: Process all products in database
 - `--force`: Re-classify products with existing status
 - `--reprocess`: Include already processed products
@@ -230,7 +230,7 @@ php artisan fodmap:status --stats
 - `--no-batch`: Disable batch processing
 
 **Status Options:**
-- `--external-ids`: Show specific products (comma-separated)
+- `--name-hashes`: Show specific products (comma-separated)
 - `--status`: Filter by status (HIGH/LOW/MODERATE/UNKNOWN/PENDING/NA)
 - `--limit`: Number of products to show (default: 10)
 - `--with-explanation`: Show detailed view with explanations

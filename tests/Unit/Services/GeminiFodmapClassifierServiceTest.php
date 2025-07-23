@@ -34,7 +34,7 @@ class GeminiFodmapClassifierServiceTest extends TestCase
         Cache::shouldReceive('put')->andReturn(true);
 
         $product = new Product([
-            'external_id' => 'test-1',
+            'name_hash'   => 'name_111111',
             'name'        => 'Banana',
             'category'    => 'Fruits',
         ]);
@@ -57,7 +57,7 @@ class GeminiFodmapClassifierServiceTest extends TestCase
         Cache::shouldReceive('put')->andReturn(true);
 
         $product = new Product([
-            'external_id' => 'test-1',
+            'name_hash'   => 'name_111111',
             'name'        => 'Test Product',
             'category'    => 'Test',
         ]);

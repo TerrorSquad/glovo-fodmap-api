@@ -3,8 +3,6 @@
 # Runner script that executes commands either in a DDEV container or directly on the host
 # Automatically detects the environment and routes commands appropriately
 
-set -euo pipefail # Exit on error, undefined variables, and pipe failures
-
 # Get the root directory of the git repository
 ROOT_DIR=$(git rev-parse --show-toplevel)
 

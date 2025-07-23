@@ -24,9 +24,9 @@ use OpenApi\Attributes as OA;
     schema: 'ProductInput',
     title: 'Product Input',
     description: 'Individual product data for classification',
-    required: ['externalId', 'name'],
+    required: ['nameHash', 'name'],
     properties: [
-        new OA\Property(property: 'externalId', description: 'Unique external identifier for the product', type: 'string', example: 'glovo-123'),
+        new OA\Property(property: 'nameHash', description: 'Stable hash identifier for the product', type: 'string', example: 'name_123456'),
         new OA\Property(property: 'name', description: 'Product name', type: 'string', example: 'Banana'),
         new OA\Property(property: 'category', description: 'Product category (optional)', type: 'string', example: 'Fruit'),
     ]
@@ -35,14 +35,14 @@ use OpenApi\Attributes as OA;
     schema: 'ProductStatusRequest',
     title: 'Product Status Request',
     description: 'Request payload for checking product classification status',
-    required: ['external_ids'],
+    required: ['name_hashes'],
     properties: [
         new OA\Property(
-            property: 'external_ids',
-            description: 'Array of external IDs to check status for',
+            property: 'name_hashes',
+            description: 'Array of name_hashes to check status for',
             type: 'array',
             items: new OA\Items(type: 'string'),
-            example: ['glovo-123', 'glovo-456']
+            example: ['name_123456', 'name_654321']
         ),
     ]
 )]

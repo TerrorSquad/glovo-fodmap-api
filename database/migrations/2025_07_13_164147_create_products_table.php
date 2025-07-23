@@ -14,7 +14,7 @@ return new class extends Migration {
     {
         Schema::create('products', function (Blueprint $table): void {
             $table->id();
-            $table->string('external_id')->unique();
+            $table->string('name_hash', 64)->unique();
             $table->string('name')->index();
             $table->string('category');
             $table->string('status')->default('PENDING')->index();
