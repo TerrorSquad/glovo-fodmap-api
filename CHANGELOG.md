@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0](https://github.com/TerrorSquad/glovo-fodmap-api/compare/v0.2.0...v0.3.0) (2025-07-23)
+
+
+### Features
+
+* move from externalId to hashes ([4363c16](https://github.com/TerrorSquad/glovo-fodmap-api/commit/4363c16753c5a569d4373f9954c2a4a0805a5482))
+
+
+### Bug Fixes
+
+* update product classification API documentation to reflect changes in identifier usage ([f6c994f](https://github.com/TerrorSquad/glovo-fodmap-api/commit/f6c994fdb4aa32ce64ce9c90a1e2ac7b8d99da87))
+
 ## [0.2.0](https://github.com/TerrorSquad/glovo-fodmap-api/compare/v0.1.0...v0.2.0) (2025-07-19)
 
 
