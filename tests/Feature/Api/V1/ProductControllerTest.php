@@ -30,12 +30,12 @@ class ProductControllerTest extends TestCase
         $response = $this->postJson('/api/v1/products/submit', [
             'products' => [
                 [
-                    'nameHash' => 'name_123456',
+                    'hash'     => 'name_123456',
                     'name'     => 'Banana',
                     'category' => 'Fruits',
                 ],
                 [
-                    'nameHash' => 'name_654321',
+                    'hash'     => 'name_654321',
                     'name'     => 'Apple',
                     'category' => 'Fruits',
                 ],
