@@ -46,7 +46,6 @@ class ClassifyProductsJob implements ShouldQueue
         ]);
 
         try {
-            // Use batch classification for performance
             $classificationResults = $classifier->classifyBatch($products->all());
 
             // Update products with classification results

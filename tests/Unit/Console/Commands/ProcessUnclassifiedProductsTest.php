@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Console\Commands;
 
+use App\Helpers\ProductHashHelper;
 use App\Jobs\ClassifyProductsJob;
 use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -61,21 +62,33 @@ class ProcessUnclassifiedProductsTest extends TestCase
     public function testCommandIgnoresAlreadyProcessedProducts(): void
     {
         // Create processed products
-        Product::factory()->create([
+        $product1 = Product::factory()->create([
+            'name'         => fake()->unique()->words(3, true),
             'status'       => 'LOW',
             'processed_at' => now(),
         ]);
 
-        Product::factory()->create([
+        $product1->name_hash = ProductHashHelper::getProductHash($product1->name);
+        $product1->save();
+
+        $product2 = Product::factory()->create([
+            'name'         => fake()->unique()->words(3, true),
             'status'       => 'HIGH',
             'processed_at' => now(),
         ]);
 
+        $product2->name_hash = ProductHashHelper::getProductHash($product2->name);
+        $product2->save();
+
         // Create one unclassified product
-        Product::factory()->create([
+        $product3 = Product::factory()->create([
+            'name'         => fake()->unique()->words(3, true),
             'status'       => 'PENDING',
             'processed_at' => null,
         ]);
+
+        $product3->name_hash = ProductHashHelper::getProductHash($product3->name);
+        $product3->save();
 
         $this->artisan('products:process-unclassified')
             ->expectsOutput('Found 1 unclassified products.')
