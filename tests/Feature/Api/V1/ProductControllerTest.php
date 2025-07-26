@@ -76,7 +76,7 @@ class ProductControllerTest extends TestCase
         ]);
 
         $response = $this->postJson('/api/v1/products/status', [
-            'name_hashes' => ['name_111111', 'name_222222'],
+            'hashes' => ['name_111111', 'name_222222'],
         ]);
 
         $response->assertStatus(200)
