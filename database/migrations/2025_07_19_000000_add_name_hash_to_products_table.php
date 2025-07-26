@@ -14,8 +14,13 @@ class AddNameHashToProductsTable extends Migration
     public function up(): void
     {
         Schema::table('products', function (Blueprint $table): void {
-            $table->string('name_hash', 64)->unique()->nullable()->after('name');
-            $table->index('name_hash');
+            if (! Schema::hasColumn('products', 'name_hash')) {
+                $table->string('name_hash', 64)->unique()->nullable()->after('name');
+            }
+
+            if (! Schema::hasIndex('products', 'name_hash')) {
+                $table->index('name_hash');
+            }
         });
     }
 
