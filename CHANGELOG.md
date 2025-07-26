@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1](https://github.com/TerrorSquad/glovo-fodmap-api/compare/v0.3.0...v0.3.1) (2025-07-26)
+
+
+### Bug Fixes
+
+* **migration:** ensure name_hash column and index are only added if they do not exist ([21845d1](https://github.com/TerrorSquad/glovo-fodmap-api/commit/21845d1ef45d839ce57b0ad6938366dc15fd9342))
+* **tests:** standardize formatting of product submission test data ([2ff6007](https://github.com/TerrorSquad/glovo-fodmap-api/commit/2ff6007366613be4eac428010afca03b8b02a649))
+* **tests:** update product submission test to use 'hash' instead of 'nameHash' ([a599b00](https://github.com/TerrorSquad/glovo-fodmap-api/commit/a599b00f3092167dd272d0725b16735aec0712fd))
+
 ## [0.3.0](https://github.com/TerrorSquad/glovo-fodmap-api/compare/v0.2.0...v0.3.0) (2025-07-23)
 
 
